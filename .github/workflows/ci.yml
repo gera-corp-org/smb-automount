@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # macOS: the target platform, and its /bin/bash is the 3.2 the scripts have
+    # to survive on. Everything the build needs (python3, zip) is preinstalled.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Which bash
+        run: /bin/bash --version | head -1
+
+      - name: Tests
+        run: /bin/bash tests/run-tests.sh
+
+      - name: Build
+        run: /bin/bash build/build.sh
+
+      - name: Release notes exist for the current VERSION
+        run: /bin/bash build/release-notes.sh
+
+      - name: The built copies report the version
+        run: |
+          ver=$(cat VERSION)
+          /bin/bash dist/smb-automount-install.sh --version | grep -q "$ver"
+          grep -q "<string>$ver</string>" "dist/Network Folder.app/Contents/Info.plist"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/*.zip
+            dist/smb-automount-install.sh

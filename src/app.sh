@@ -10,7 +10,7 @@ set -u
 APPLOG="$HOME/Library/Logs/smb-automount-app.log"
 mkdir -p "$(dirname "$APPLOG")" 2>/dev/null
 alog() { echo "$(date '+%F %T') $*" >>"$APPLOG" 2>/dev/null; }
-VERSION="2026-08-10.8"
+VERSION="@@VERSION@@"      # substituted by the build from the VERSION file
 alog "=== start (version $VERSION): $0"
 alog "    bash $BASH_VERSION, uid $(id -u), TERM=${TERM:-none}"
 trap 'alog "=== exit, code $?"' EXIT

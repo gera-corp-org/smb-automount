@@ -14,6 +14,14 @@ DIST="$ROOT/dist"
 APP_NAME="Network Folder"
 LOG_APP_NAME="Network Folder Log"
 
+# The version comes from the VERSION file; CI overrides it from the tag.
+VERSION=${VERSION:-$(cat "$ROOT/VERSION")}
+VERSION=${VERSION#v}
+case "$VERSION" in
+  '' | *[!0-9A-Za-z.+-]*)
+    echo "FAIL: bad version '$VERSION' (expected something like 1.0.0)" >&2; exit 1 ;;
+esac
+
 # Substitutes the contents of a file for a marker line.
 # sed/awk are finicky with multi-line insertions, so python3 does it — it is
 # present on macOS and in any build environment.
@@ -28,6 +36,14 @@ if line not in text:
     sys.exit('marker %s not found in %s' % (marker, tpl))
 sys.stdout.write(text.replace(line, piece))
 PY
+}
+
+# Substitutes the version for the @@VERSION@@ marker, in place. A missing
+# marker would ship a build that cannot say which version it is, so it fails.
+stamp() { # file
+  grep -q '@@VERSION@@' "$1" \
+    || { echo "FAIL: no @@VERSION@@ marker in $1" >&2; exit 1; }
+  sed "s/@@VERSION@@/$VERSION/g" "$1" > "$1.stamped" && mv "$1.stamped" "$1"
 }
 
 # Builds an .app bundle around a ready executable script.
@@ -52,8 +68,8 @@ make_app() { # app-name executable identifier name-inside-MacOS
     <key>CFBundleDisplayName</key><string>$name</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleSignature</key><string>????</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION</string>
+    <key>CFBundleVersion</key><string>$VERSION</string>
     <key>LSMinimumSystemVersion</key><string>10.13</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
@@ -76,6 +92,10 @@ expand "$SRC/cli-install.sh"  '@@COMMON@@' "$SRC/lib/common.sh" > "$DIST/tmp/cli
 expand "$DIST/tmp/cli.stage1" '@@WORKER@@' "$DIST/tmp/worker.sh" > "$DIST/smb-automount-install.sh"
 chmod 755 "$DIST/smb-automount-install.sh"
 
+# 2a. The version — into both frontends.
+stamp "$DIST/tmp/app.sh"
+stamp "$DIST/smb-automount-install.sh"
+
 # 3. Syntax check before packaging.
 for f in "$DIST/tmp/worker.sh" "$DIST/tmp/app.sh" "$DIST/smb-automount-install.sh" "$SRC/log-app.sh"; do
   bash -n "$f" || { echo "FAIL: syntax error in $f" >&2; exit 1; }
@@ -93,5 +113,5 @@ make_app "$LOG_APP_NAME" "$SRC/log-app.sh"     'com.user.smb-automount.log'   's
 
 rm -rf "$DIST/tmp"
 
-echo "done, everything is in $DIST:"
+echo "done, version $VERSION, everything is in $DIST:"
 ls -1 "$DIST"

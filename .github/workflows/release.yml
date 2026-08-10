@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The tag matches VERSION
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          file="$(cat VERSION)"
+          [ "$tag" = "$file" ] || {
+            echo "tag $GITHUB_REF_NAME does not match VERSION ($file)" >&2
+            exit 1
+          }
+
+      - name: Tests
+        run: /bin/bash tests/run-tests.sh
+
+      - name: Build
+        run: /bin/bash build/build.sh
+
+      - name: Release notes
+        run: |
+          {
+            /bin/bash build/release-notes.sh "$GITHUB_REF_NAME"
+            echo
+            cat build/release-footer.md
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            "dist/Network Folder.app.zip#Network Folder.app — setup, double-click" \
+            "dist/Network Folder Log.app.zip#Network Folder Log.app — view the logs" \
+            "dist/smb-automount-install.sh#Installer for the terminal"

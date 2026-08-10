@@ -1,5 +1,8 @@
 # smb-automount
 
+[![CI](https://github.com/gera-corp-org/smb-automount/actions/workflows/ci.yml/badge.svg)](https://github.com/gera-corp-org/smb-automount/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/gera-corp-org/smb-automount)](https://github.com/gera-corp-org/smb-automount/releases/latest)
+
 Auto-mounting of a Windows network share (SMB) on macOS over a corporate VPN.
 
 The stock "Login Items" do not work here: they fire at login, when the VPN is not up yet, and the connection fails silently. This project installs a background agent that waits for the server to appear and mounts the share itself — at login, after the VPN connects and after waking from sleep.
@@ -20,6 +23,12 @@ Setup is a double-click on the app; no terminal needed.
 
 macOS with the system bash 3.2 (that is, any modern version). Nothing to install: only `mount_smbfs`, `smbutil`, `security`, `launchctl` and `osascript` are used.
 
+## Install
+
+Take the archives from the [latest release](https://github.com/gera-corp-org/smb-automount/releases/latest), unpack `Network Folder.app.zip` and open the app.
+
+The app is not signed by an Apple developer account, so the first launch goes through **right-click → Open → Open**; a plain double-click is refused by macOS as "from an unidentified developer". Later launches are ordinary double-clicks. See [docs/INSTALL.md](docs/INSTALL.md).
+
 ## Build
 
 ```bash
@@ -34,7 +43,9 @@ The result lands in `dist/`:
 | `Network Folder Log.app` | opens the logs in TextEdit |
 | `smb-automount-install.sh` | the same thing for the terminal |
 
-The build substitutes `src/lib/common.sh` for the `@@COMMON@@` marker, embeds the worker script in place of `@@WORKER@@`, checks syntax and bash 3.2 compatibility, then assembles the bundles and archives.
+The build substitutes `src/lib/common.sh` for the `@@COMMON@@` marker, embeds the worker script in place of `@@WORKER@@`, stamps the version over `@@VERSION@@`, checks syntax and bash 3.2 compatibility, then assembles the bundles and archives.
+
+The version comes from the `VERSION` file — the single source for the apps' `Info.plist`, the app log and `smb-automount-install.sh --version`. `VERSION=1.2.3 bash build/build.sh` overrides it for a one-off build.
 
 ## Tests
 
@@ -47,17 +58,30 @@ No real server needed: `mount_smbfs`, `osascript`, `mount`, `nc` and `security` 
 
 `check-bash32.sh` catches `case` inside `$( )` and a backslash inside `${...}` — bash 5 digests both, while the system bash 3.2 on macOS rejects them with code 258 before the first line of output. The check is part of the build.
 
+On every push and pull request [CI](.github/workflows/ci.yml) runs the tests and the build on a macOS runner, where `/bin/bash` really is 3.2, and keeps `dist/` as a build artifact.
+
+## Releasing
+
+1. Bump `VERSION` and add a `## <version>` section to [CHANGELOG.md](CHANGELOG.md) — it becomes the release notes; `bash build/release-notes.sh` prints what they will say.
+2. Commit, then `git tag vX.Y.Z && git push origin master --tags`.
+3. [The release workflow](.github/workflows/release.yml) checks that the tag matches `VERSION`, runs the tests, builds, and publishes a GitHub release with both `.app.zip` archives and the installer attached.
+
 ## Layout
 
 ```
+VERSION             the version, single source for build and release
 src/
   lib/common.sh     shared functions: URL encoding, login forms, error codes
   worker.sh         worker script: mounts and watches the state
   app.sh            app with macOS dialogs
   cli-install.sh    installer for the terminal
   log-app.sh        app for viewing the logs
-build/build.sh      builds dist/
+build/
+  build.sh          builds dist/
+  release-notes.sh  pulls one version's section out of the changelog
+  release-footer.md install instructions appended to the release notes
 tests/              tests
+.github/workflows/  CI on macOS and the release on a tag
 docs/INSTALL.md     user guide
 ```
 

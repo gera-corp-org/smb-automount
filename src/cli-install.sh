@@ -6,6 +6,7 @@
 #   bash smb-automount-install.sh              — install / reinstall
 #   bash smb-automount-install.sh --uninstall  — remove
 #   bash smb-automount-install.sh --list       — what is already installed
+#   bash smb-automount-install.sh --version    — the version of this file
 #
 # Designed for work over a corporate VPN: while the VPN is down no mount is
 # attempted; as soon as the server becomes reachable the share connects by
@@ -14,6 +15,7 @@
 
 set -u
 
+VERSION="@@VERSION@@"      # substituted by the build from the VERSION file
 BIN_DIR="$HOME/bin"
 CONF_DIR="$HOME/.config/smb-automount"
 AGENT_DIR="$HOME/Library/LaunchAgents"
@@ -341,7 +343,8 @@ PLIST_EOF
 case "${1:-}" in
   --uninstall|-u) cmd_uninstall ;;
   --list|-l)      say ""; cmd_list; say "" ;;
-  --help|-h)      sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+  --version|-V)   say "smb-automount $VERSION" ;;
+  --help|-h)      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
   "")             cmd_install ;;
   *)              die "unknown argument: $1 (see --help)" ;;
 esac
