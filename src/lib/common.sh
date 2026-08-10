@@ -1,13 +1,14 @@
-# Общие функции smb-automount.
-# Сборщик подставляет этот файл вместо строки @@COMMON@@ и во фронтенды,
-# и в рабочий скрипт: тот ставится отдельным файлом и импортировать ничего не может.
+# Shared smb-automount functions.
+# The build substitutes this file for the @@COMMON@@ marker in both the
+# frontends and the worker: the worker is installed as a standalone file and
+# cannot import anything.
 
-# --------------------------------------------------------------- утилиты -----
+# --------------------------------------------------------------- helpers -----
 urlenc() {
   printf %s "$1" | /usr/bin/perl -pe 's/([^A-Za-z0-9._~-])/sprintf("%%%02X", ord($1))/ge'
 }
-# Строка учётных данных для SMB-URL. Разные серверы ждут разную форму имени,
-# поэтому вариантов три: DOMAIN;user, просто user и user@domain (UPN).
+# Credentials string for an SMB URL. Servers expect different forms of the
+# user name, hence three variants: DOMAIN;user, plain user, and user@domain (UPN).
 auth_str() { # mode user domain password
   local u p d
   u=$(urlenc "$2"); p=$(urlenc "$4")
@@ -17,18 +18,18 @@ auth_str() { # mode user domain password
     *)      printf '%s:%s' "$u" "$p" ;;
   esac
 }
-auth_modes() { # domain -> список вариантов для перебора
+auth_modes() { # domain -> variants to try
   if [ -n "$1" ]; then printf 'domain plain upn'; else printf 'plain'; fi
 }
-# Расшифровка кодов выхода mount_smbfs (sysexits.h)
+# Decoding of mount_smbfs exit codes (sysexits.h)
 code_hint() {
   case "$1" in
-    64) echo "не разобран URL" ;;
-    68) echo "сервер не найден" ;;
-    69) echo "сервер недоступен" ;;
-    71) echo "ошибка системы" ;;
-    77) echo "отказано в доступе — логин, пароль, домен или права на папку" ;;
-    78) echo "ошибка конфигурации" ;;
-    *)  echo "код $1" ;;
+    64) echo "malformed URL" ;;
+    68) echo "server not found" ;;
+    69) echo "server unavailable" ;;
+    71) echo "system error" ;;
+    77) echo "permission denied — login, password, domain or share permissions" ;;
+    78) echo "configuration error" ;;
+    *)  echo "code $1" ;;
   esac
 }

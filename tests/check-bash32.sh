@@ -1,11 +1,12 @@
 #!/bin/bash
 #
-# Проверка на конструкции, которых не понимает bash 3.2 — системный на macOS.
-# Разработка идёт на bash 5, где всё это проходит молча, а на целевой машине
-# скрипт падает с кодом 258 ещё до первой строки вывода. Так и случилось:
-# из-за одного case внутри $( ) приложение закрывалось сразу после запуска.
+# Checks for constructs that bash 3.2 — the system bash on macOS — cannot parse.
+# Development happens on bash 5, where all of this passes silently, while on the
+# target machine the script dies with code 258 before printing a single line.
+# That actually happened: one case inside $( ) made the app quit right after
+# launch.
 #
-#   bash tests/check-bash32.sh файл [файл...]
+#   bash tests/check-bash32.sh file [file...]
 #
 set -u
 
@@ -13,7 +14,7 @@ python3 - "$@" <<'PY'
 import re, sys, pathlib
 
 def strip_heredocs(text):
-    """Тело heredoc bash не разбирает, поэтому вырезаем его из проверки."""
+    """bash does not parse a heredoc body, so cut it out of the check."""
     lines = text.split('\n')
     out, i = [], 0
     while i < len(lines):
@@ -33,12 +34,12 @@ def strip_heredocs(text):
 
 
 def case_inside_substitution(text):
-    """Ищет case внутри $( ... ).
+    """Finds case inside $( ... ).
 
-    Кавычки внутри подстановки живут своей жизнью: "$(cat "$f")" — это
-    строка, внутри неё подстановка, внутри неё снова строка. Поэтому на
-    каждый $( кладём в стек новый контекст со своим состоянием кавычек,
-    иначе закрывающая скобка теряется и разбор уезжает до конца файла.
+    Quotes inside a substitution live their own life: "$(cat "$f")" is a
+    string, inside it a substitution, inside that a string again. So every $(
+    pushes a fresh context with its own quote state onto the stack — otherwise
+    the closing paren is lost and parsing runs away to the end of the file.
     """
     bad = []
     stack = [{'sq': False, 'dq': False}]
@@ -60,7 +61,7 @@ def case_inside_substitution(text):
             i += 2; continue
 
         if c == '$' and text[i+1:i+2] == '(':
-            if text[i+2:i+3] == '(':          # арифметика $(( )) — не подстановка
+            if text[i+2:i+3] == '(':          # arithmetic $(( )) — not a substitution
                 i += 3; continue
             stack.append({'sq': False, 'dq': False})
             i += 2; continue
@@ -100,23 +101,23 @@ for path in sys.argv[1:]:
     name = pathlib.Path(path).name
 
     for line, snippet in case_inside_substitution(src):
-        print('  %s:%d  case внутри $( ) — bash 3.2 не разберёт: %s' % (name, line, snippet[:70]))
+        print('  %s:%d  case inside $( ) — bash 3.2 will not parse it: %s' % (name, line, snippet[:70]))
         fail = True
 
     for n, ln in enumerate(src.split('\n'), 1):
         if re.search(r'\$\{[^}]*\\\\\}', ln):
-            print('  %s:%d  обратный слэш внутри ${...} — заменить обычным if' % (name, n))
+            print('  %s:%d  backslash inside ${...} — replace with a plain if' % (name, n))
             fail = True
         if re.search(r'\$\{[A-Za-z_][A-Za-z0-9_]*(,,|\^\^)', ln) or \
            re.search(r'(^|[^-\w])(mapfile|readarray|declare -A|local -n)\b', ln):
-            print('  %s:%d  возможности bash 4+: %s' % (name, n, ln.strip()[:60]))
+            print('  %s:%d  bash 4+ feature: %s' % (name, n, ln.strip()[:60]))
             fail = True
 
 sys.exit(1 if fail else 0)
 PY
 rc=$?
 if [ "$rc" -ne 0 ]; then
-  echo "совместимость с bash 3.2: НЕ пройдена" >&2
+  echo "bash 3.2 compatibility: FAILED" >&2
   exit 1
 fi
-echo "совместимость с bash 3.2: в порядке"
+echo "bash 3.2 compatibility: ok"

@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Тесты рабочего скрипта на заглушках. Настоящий сервер не нужен: подменяются
-# mount_smbfs, osascript, mount, nc и security, а проверяется поведение —
-# что уходит в журнал и что оказывается смонтировано.
+# Worker tests on stubs. No real server needed: mount_smbfs, osascript, mount,
+# nc and security are replaced by stubs, and the behaviour is checked — what
+# goes into the log and what ends up mounted.
 #
 #   bash tests/run-tests.sh
 #
@@ -21,7 +21,7 @@ trap cleanup EXIT
 
 mkdir -p "$STUB" "$HOME_DIR/.config/smb-automount" "$VOL"
 
-# --- собираем рабочий скрипт из исходников и переводим на заглушки ---
+# --- assemble the worker from sources and point it at the stubs ---
 python3 - "$ROOT" "$WORK/worker.sh" <<'PY'
 import sys, pathlib
 root, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
@@ -42,16 +42,18 @@ sed -i.bak \
   -e "s#\"/Volumes/\$SHARE\"#\"\$TESTVOL/\$SHARE\"#" \
   "$WORK/worker.sh"
 
-bash -n "$WORK/worker.sh" || { echo "рабочий скрипт не проходит bash -n"; exit 1; }
+bash -n "$WORK/worker.sh" || { echo "the worker does not pass bash -n"; exit 1; }
 
+# The share name is deliberately non-ASCII and contains a space: that is what
+# percent-encoding and the mount lookup have to survive.
 cat > "$HOME_DIR/.config/smb-automount/x.conf" <<EOF
 SERVER="vault.example.local"
-SHARE="Общая папка"
+SHARE="Équipe partagée"
 USERNAME="admin"
 DOMAIN=""
-MOUNTPOINT="/Volumes/Общая папка"
-FALLBACK="$HOME_DIR/mnt/Общая папка"
-KEYCHAIN_SERVICE="smb:vault.example.local/Общая папка"
+MOUNTPOINT="/Volumes/Équipe partagée"
+FALLBACK="$HOME_DIR/mnt/Équipe partagée"
+KEYCHAIN_SERVICE="smb:vault.example.local/Équipe partagée"
 AUTHMODE="plain"
 EOF
 CONF="$HOME_DIR/.config/smb-automount/x.conf"
@@ -71,18 +73,18 @@ run_worker() {
 
 log_text() { cat "$HOME_DIR/Library/Logs/smb-automount.log" 2>/dev/null; }
 
-check() { # описание образец-в-журнале
+check() { # description pattern-in-log
   if log_text | grep -q "$2"; then
     echo "  ok   $1"
     passed=$((passed + 1))
   else
-    echo "  СБОЙ $1 — в журнале нет «$2»"
-    echo "       журнал:"; log_text | sed 's/^/         /'
+    echo "  FAIL $1 — the log has no “$2”"
+    echo "       log:"; log_text | sed 's/^/         /'
     failed=$((failed + 1))
   fi
 }
 
-# ---------------------------------------------------------------- заглушки ---
+# ------------------------------------------------------------------- stubs ---
 stub nc <<'S'
 #!/bin/bash
 [ -f "$WORKDIR/offline" ] && exit 1
@@ -90,12 +92,12 @@ exit 0
 S
 stub security <<'S'
 #!/bin/bash
-case "$1" in find-generic-password) echo 'сЕкрет' ;; esac
+case "$1" in find-generic-password) echo 's3cret' ;; esac
 exit 0
 S
 stub mount_stub <<'S'
 #!/bin/bash
-[ -f "$WORKDIR/mounted" ] && echo "//admin@vault.example.local/%D0%9E%D0%B1%D1%89%D0%B0%D1%8F%20%D0%BF%D0%B0%D0%BF%D0%BA%D0%B0 on $(cat "$WORKDIR/mounted") (smbfs)"
+[ -f "$WORKDIR/mounted" ] && echo "//admin@vault.example.local/%C3%89quipe%20partag%C3%A9e on $(cat "$WORKDIR/mounted") (smbfs)"
 exit 0
 S
 stub umount <<'S'
@@ -119,43 +121,43 @@ stub osascript <<'S'
 exit 1
 S
 
-# ------------------------------------------------------------------- тесты ---
-echo "1. VPN выключен — ждём, без повторов в журнале"
+# ------------------------------------------------------------------- tests ---
+echo "1. VPN down — wait, with no repeats in the log"
 reset_state; touch "$WORK/offline"
 run_worker; run_worker; run_worker
-check "сообщение об ожидании есть" "жду подключения VPN"
-n=$(log_text | grep -c "жду подключения VPN")
-if [ "$n" -eq 1 ]; then echo "  ok   повторов нет"; passed=$((passed+1))
-else echo "  СБОЙ повторов $n вместо 1"; failed=$((failed+1)); fi
+check "the waiting message is there" "waiting for VPN"
+n=$(log_text | grep -c "waiting for VPN")
+if [ "$n" -eq 1 ]; then echo "  ok   no repeats"; passed=$((passed+1))
+else echo "  FAIL $n repeats instead of 1"; failed=$((failed+1)); fi
 rm -f "$WORK/offline"
 
-echo "2. Каталог в /Volumes доступен — монтируем туда"
+echo "2. The directory in /Volumes is available — mount there"
 reset_state
 run_worker
-check "смонтировано в /Volumes" "том в /Volumes"
+check "mounted into /Volumes" "volume in /Volumes"
 
-echo "3. Живой том и заминка сети — том не отцепляется"
+echo "3. Live volume and a network hiccup — the volume stays mounted"
 reset_state; run_worker
 touch "$WORK/offline"; run_worker; rm -f "$WORK/offline"
-if [ -f "$WORK/mounted" ]; then echo "  ok   том на месте"; passed=$((passed+1))
-else echo "  СБОЙ том отцепился из-за пробы порта"; failed=$((failed+1)); fi
+if [ -f "$WORK/mounted" ]; then echo "  ok   the volume is still there"; passed=$((passed+1))
+else echo "  FAIL the volume was unmounted because of a port probe"; failed=$((failed+1)); fi
 
-echo "4. Том умер — отцепляем на третьей проверке и сразу монтируем заново"
+echo "4. Dead volume — unmount on the third check and remount right away"
 reset_state; run_worker
 touch "$WORK/dead"
 run_worker; run_worker; run_worker
-check "отцепление и повторное подключение" "отцепляю и подключаю заново"
-if [ -f "$WORK/mounted" ]; then echo "  ok   том поднят обратно"; passed=$((passed+1))
-else echo "  СБОЙ том не вернулся"; failed=$((failed+1)); fi
+check "unmount and reconnect" "unmounting and reconnecting"
+if [ -f "$WORK/mounted" ]; then echo "  ok   the volume came back"; passed=$((passed+1))
+else echo "  FAIL the volume did not come back"; failed=$((failed+1)); fi
 
-echo "5. Каталог в /Volumes недоступен, NetFS зависает — уходим в домашнюю папку"
+echo "5. The directory in /Volumes is unavailable and NetFS hangs — fall back to the home folder"
 reset_state; chmod 500 "$VOL"; touch "$WORK/netfs_hangs"
 run_worker
 chmod 700 "$VOL"; rm -f "$WORK/netfs_hangs"
-check "NetFS прерван по таймауту" "NetFS"
-check "сработал запасной путь" "запасной путь"
+check "NetFS aborted by timeout" "NetFS"
+check "the fallback path worked" "fallback path"
 
-echo "6. Сервер отвергает вход — честная ошибка"
+echo "6. The server rejects the login — an honest error"
 reset_state
 stub mount_smbfs <<'S'
 #!/bin/bash
@@ -163,9 +165,9 @@ echo "mount_smbfs: server rejected the connection: Authentication error" >&2
 exit 77
 S
 run_worker
-check "причина отказа расшифрована" "отказано в доступе"
-check "итоговая ошибка" "не удалось смонтировать"
+check "the reason is decoded" "permission denied"
+check "the final error" "could not mount"
 
 echo
-echo "успешно: $passed, сбоев: $failed"
+echo "passed: $passed, failed: $failed"
 [ "$failed" -eq 0 ]

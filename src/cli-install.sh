@@ -1,15 +1,15 @@
 #!/bin/bash
 #
-# smb-automount — установщик автомонтирования Windows SMB-шары на macOS.
+# smb-automount — installer for automounting a Windows SMB share on macOS.
 #
-# Один файл: скопируйте на любую машину, запустите, ответьте на вопросы.
-#   bash smb-automount-install.sh              — установка / переустановка
-#   bash smb-automount-install.sh --uninstall  — удаление
-#   bash smb-automount-install.sh --list       — что уже установлено
+# One file: copy it to any machine, run it, answer the questions.
+#   bash smb-automount-install.sh              — install / reinstall
+#   bash smb-automount-install.sh --uninstall  — remove
+#   bash smb-automount-install.sh --list       — what is already installed
 #
-# Рассчитан на работу через корпоративный VPN: пока VPN не поднят,
-# монтирование не пытается выполняться; как только сервер стал доступен —
-# папка подключается сама.
+# Designed for work over a corporate VPN: while the VPN is down no mount is
+# attempted; as soon as the server becomes reachable the share connects by
+# itself.
 #
 
 set -u
@@ -27,8 +27,8 @@ warn() { printf '%s!%s %s\n' "$c_y" "$c_0" "$*"; }
 err()  { printf '%s✗%s %s\n' "$c_r" "$c_0" "$*" >&2; }
 die()  { err "$*"; exit 1; }
 
-# Кириллица не даёт ASCII-части, поэтому к идентификатору всегда добавляется
-# хеш — иначе разные папки получили бы одинаковое имя конфига.
+# A non-ASCII name leaves no ASCII part behind, so a hash is always appended to
+# the identifier — otherwise different shares would get the same config name.
 slugify() {
   local ascii hash
   ascii=$(printf %s "$1" | tr '[:upper:]' '[:lower:]' \
@@ -42,8 +42,8 @@ slugify() {
 
 
 
-# Точка монтирования шары, если она подключена (иначе пусто). Имя тома
-# в /Volumes выбирает система, поэтому ищем по серверу и имени папки.
+# Mount point of the share if it is mounted (empty otherwise). The system picks
+# the volume name in /Volumes, so we search by server and share name.
 mounted_path() { # server share
   /sbin/mount -t smbfs 2>/dev/null | SRV="$1" SH="$2" SHE="$(urlenc "$2")" \
     /usr/bin/perl -ne '
@@ -55,7 +55,7 @@ mounted_path() { # server share
 }
 
 
-# Какой вариант учётных данных принимает сервер. Печатает mode или ничего.
+# Which credential form the server accepts. Prints the mode, or nothing.
 probe_mode() { # server user domain password
   local m
   for m in $(auth_modes "$3"); do
@@ -75,7 +75,7 @@ list_shares() { # server user domain password mode
     | /usr/bin/grep -v '^$'
 }
 
-ask() { # ask <переменная> <вопрос> [значение_по_умолчанию] [allow_empty]
+ask() { # ask <variable> <question> [default] [allow_empty]
   local __var="$1" __q="$2" __def="${3:-}" __allow="${4:-}" __in=""
   while :; do
     if [ -n "$__def" ]; then
@@ -83,10 +83,10 @@ ask() { # ask <переменная> <вопрос> [значение_по_ум�
     else
       printf '%s%s%s: ' "$c_b" "$__q" "$c_0"
     fi
-    IFS= read -r __in || die "ввод прерван"
+    IFS= read -r __in || die "input interrupted"
     [ -z "$__in" ] && __in="$__def"
     if [ -z "$__in" ] && [ "$__allow" != "allow_empty" ]; then
-      warn "нужно что-то ввести"
+      warn "an answer is required"
       continue
     fi
     break
@@ -94,17 +94,18 @@ ask() { # ask <переменная> <вопрос> [значение_по_ум�
   eval "$__var=\$__in"
 }
 
-yesno() { # yesno <вопрос> <y|n по умолчанию>
+yesno() { # yesno <question> <default y|n>
   local q="$1" def="${2:-y}" ans hint
   [ "$def" = "y" ] && hint="Y/n" || hint="y/N"
   printf '%s%s%s [%s]: ' "$c_b" "$q" "$c_0" "$hint"
   IFS= read -r ans || return 1
   ans=$(printf %s "${ans:-$def}" | tr '[:upper:]' '[:lower:]')
-  [ "$ans" = "y" ] || [ "$ans" = "yes" ] || [ "$ans" = "д" ] || [ "$ans" = "да" ]
+  [ "$ans" = "y" ] || [ "$ans" = "yes" ]
 }
 
-# Убирает старые конфиги/агенты для той же папки, оставшиеся от прежних версий
-# (идентификатор конфига изменился, иначе рядом жил бы второй агент).
+# Removes stale configs/agents for the same share left over from earlier
+# versions (the config identifier changed, otherwise a second agent would
+# live alongside).
 drop_duplicates() { # server share keep_slug
   local f other
   for f in "$CONF_DIR"/*.conf; do
@@ -135,16 +136,16 @@ cmd_list() {
     # shellcheck disable=SC1090
     ( . "$f"
       mp=$(mounted_path "$SERVER" "$SHARE")
-      if [ -n "$mp" ]; then st="${c_g}смонтировано${c_0}"; else st="${c_y}не смонтировано${c_0}"; mp="$MOUNTPOINT"; fi
+      if [ -n "$mp" ]; then st="${c_g}mounted${c_0}"; else st="${c_y}not mounted${c_0}"; mp="$MOUNTPOINT"; fi
       printf '  %s//%s/%s%s  ->  %s  [%b]\n' "$c_b" "$SERVER" "$SHARE" "$c_0" "$mp" "$st" )
   done
-  [ "$found" = 1 ] || say "  (ничего не установлено)"
+  [ "$found" = 1 ] || say "  (nothing installed)"
 }
 
 # ------------------------------------------------------------- uninstall -----
 cmd_uninstall() {
   say ""
-  say "${c_b}Установленные подключения:${c_0}"
+  say "${c_b}Installed connections:${c_0}"
   cmd_list
   say ""
   local slugs=() f s
@@ -153,10 +154,10 @@ cmd_uninstall() {
     s=$(basename "$f" .conf)
     slugs+=("$s")
   done
-  [ ${#slugs[@]} -gt 0 ] || { say "Удалять нечего."; exit 0; }
+  [ ${#slugs[@]} -gt 0 ] || { say "Nothing to remove."; exit 0; }
 
   for s in "${slugs[@]}"; do
-    yesno "Удалить «$s»?" n || continue
+    yesno "Remove “$s”?" n || continue
     launchctl bootout "gui/$(id -u)/$LABEL_PREFIX.$s" 2>/dev/null
     rm -f "$AGENT_DIR/$LABEL_PREFIX.$s.plist"
     # shellcheck disable=SC1090
@@ -164,71 +165,72 @@ cmd_uninstall() {
       mp=$(mounted_path "$SERVER" "$SHARE")
       [ -n "$mp" ] && { /sbin/umount -f "$mp" 2>/dev/null || /usr/sbin/diskutil unmount force "$mp" 2>/dev/null; }
       rmdir "${FALLBACK:-}" 2>/dev/null
-      if yesno "  Удалить и пароль из связки ключей?" n; then
+      if yesno "  Delete the password from the keychain as well?" n; then
         /usr/bin/security delete-generic-password -a "$USERNAME" -s "$KEYCHAIN_SERVICE" >/dev/null 2>&1 \
-          && echo "  пароль удалён"
+          && echo "  password deleted"
       fi )
     rm -f "$CONF_DIR/$s.conf"
-    ok "«$s» удалено"
+    ok "“$s” removed"
   done
   exit 0
 }
 
 # --------------------------------------------------------------- install -----
 cmd_install() {
-  [ "$(uname -s)" = "Darwin" ] || die "скрипт рассчитан на macOS"
+  [ "$(uname -s)" = "Darwin" ] || die "this script is meant for macOS"
 
   say ""
-  say "${c_b}=== Автомонтирование сетевой папки Windows ===${c_0}"
-  say "Отвечайте на вопросы; Enter принимает значение в скобках."
+  say "${c_b}=== Automounting a Windows network share ===${c_0}"
+  say "Answer the questions; Enter accepts the value in brackets."
   say ""
 
-  ask SERVER   "Адрес сервера (имя или IP)"
-  ask USERNAME "Логин" "$(id -un)"
-  ask DOMAIN   "Домен AD (Enter — если нет)" "" allow_empty
+  ask SERVER   "Server address (host name or IP)"
+  ask USERNAME "Login" "$(id -un)"
+  ask DOMAIN   "AD domain (Enter — if none)" "" allow_empty
 
   local P1 P2
   while :; do
-    printf '%sПароль%s (не отображается): ' "$c_b" "$c_0"; IFS= read -rs P1; echo
-    printf '%sПароль ещё раз%s: ' "$c_b" "$c_0";           IFS= read -rs P2; echo
+    printf '%sPassword%s (not shown): ' "$c_b" "$c_0"; IFS= read -rs P1; echo
+    printf '%sPassword again%s: ' "$c_b" "$c_0";       IFS= read -rs P2; echo
     [ -n "$P1" ] && [ "$P1" = "$P2" ] && break
-    warn "пароли не совпали или пусты — попробуйте снова"
+    warn "the passwords did not match or were empty — try again"
   done
 
-  # --- проверяем учётные данные и берём список папок с сервера ---
+  # --- verify the credentials and fetch the list of shares from the server ---
   local SHARE="" shares i line pick MODE=""
   if /usr/bin/nc -z -G 3 "$SERVER" 445 >/dev/null 2>&1; then
     MODE=$(probe_mode "$SERVER" "$USERNAME" "$DOMAIN" "$P1") || MODE=""
     if [ -z "$MODE" ]; then
-      warn "сервер не принял учётные данные ни как «$USERNAME», ни как «${DOMAIN:-ДОМЕН}\\$USERNAME», ни как «$USERNAME@${DOMAIN:-домен}»"
-      warn "обычно это опечатка в пароле либо лишний/отсутствующий домен"
+      warn "the server accepted the credentials neither as “$USERNAME”, nor as “${DOMAIN:-DOMAIN}\\$USERNAME”, nor as “$USERNAME@${DOMAIN:-domain}”"
+      warn "usually this is a typo in the password or an extra/missing domain"
     else
-      say "  вариант входа: $MODE"
+      say "  login form: $MODE"
       shares=$(list_shares "$SERVER" "$USERNAME" "$DOMAIN" "$P1" "$MODE")
       if [ -n "$shares" ]; then
         say ""
-        say "${c_b}Папки, доступные на $SERVER:${c_0}"
+        say "${c_b}Shares available on $SERVER:${c_0}"
         i=0
         while IFS= read -r line; do i=$((i+1)); printf '  %2d) %s\n' "$i" "$line"; done <<<"$shares"
-        printf '  %2d) ввести имя вручную\n' "$((i+1))"
-        ask pick "Выберите номер" "1"
+        printf '  %2d) type the name by hand\n' "$((i+1))"
+        ask pick "Pick a number" "1"
         if [ "$pick" -ge 1 ] 2>/dev/null && [ "$pick" -le "$i" ] 2>/dev/null; then
           SHARE=$(printf '%s\n' "$shares" | sed -n "${pick}p")
         fi
       fi
     fi
   fi
-  [ -n "$SHARE" ] || ask SHARE "Имя сетевой папки — точно как на Windows"
+  [ -n "$SHARE" ] || ask SHARE "Name of the network share — exactly as on Windows"
 
-  # Монтируем штатным механизмом macOS — том появляется в /Volumes под именем
-  # папки, как при подключении через ⌘K. Точный путь выбирает система.
+  # Mounted through the stock macOS mechanism — the volume shows up in /Volumes
+  # under the share name, just like connecting via ⌘K. The system picks the
+  # exact path.
   local SLUG MOUNTPOINT FALLBACK MP
   SLUG=$(slugify "$SERVER-$SHARE")
   MOUNTPOINT="/Volumes/$SHARE"
   FALLBACK="$HOME/mnt/$SHARE"
 
   local INTERVAL
-  ask INTERVAL "Интервал проверки, сек (ждём поднятия VPN)" "60"
+  ask INTERVAL "Check interval, sec (waiting for the VPN to come up)" "60"
   case "$INTERVAL" in (*[!0-9]*|'') INTERVAL=60 ;; esac
 
   local KEYCHAIN_SERVICE="smb:$SERVER/$SHARE"
@@ -236,18 +238,18 @@ cmd_install() {
     -a "$USERNAME" -s "$KEYCHAIN_SERVICE" \
     -l "smb-automount: $SERVER/$SHARE" \
     -T /usr/bin/security -w "$P1" >/dev/null \
-    || die "не удалось записать пароль в связку ключей"
+    || die "could not write the password to the keychain"
   unset P1 P2
-  ok "пароль сохранён в связке ключей"
+  ok "password saved in the keychain"
 
-  # --- файлы ---
+  # --- files ---
   mkdir -p "$CONF_DIR" "$AGENT_DIR" "$BIN_DIR"
   chmod 700 "$CONF_DIR"
   drop_duplicates "$SERVER" "$SHARE" "$SLUG"
 
   cat >"$CONF_DIR/$SLUG.conf" <<CONF_EOF
 # smb-automount: $SERVER/$SHARE
-# создан $(date '+%F %T'). Можно править вручную, пароля здесь нет.
+# created $(date '+%F %T'). Safe to edit by hand; no password here.
 SERVER="$SERVER"
 SHARE="$SHARE"
 USERNAME="$USERNAME"
@@ -259,8 +261,8 @@ AUTHMODE="$MODE"
 CONF_EOF
 
   write_worker
-  ok "скрипт: $WORKER"
-  ok "конфиг: $CONF_DIR/$SLUG.conf"
+  ok "script: $WORKER"
+  ok "config: $CONF_DIR/$SLUG.conf"
 
   local PLIST="$AGENT_DIR/$LABEL_PREFIX.$SLUG.plist"
   cat >"$PLIST" <<PLIST_EOF
@@ -290,21 +292,21 @@ CONF_EOF
 </dict>
 </plist>
 PLIST_EOF
-  ok "агент:  $PLIST"
+  ok "agent:  $PLIST"
 
   launchctl bootout "gui/$(id -u)/$LABEL_PREFIX.$SLUG" 2>/dev/null
   launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null \
     || launchctl load "$PLIST" 2>/dev/null \
-    || die "не удалось загрузить LaunchAgent"
-  ok "агент запущен (перезагрузка не нужна)"
+    || die "could not load the LaunchAgent"
+  ok "agent started (no reboot needed)"
 
-  # --- проверка ---
+  # --- verification ---
   say ""
   if /usr/bin/nc -z -G 3 "$SERVER" 445 >/dev/null 2>&1; then
-    say "Сервер доступен, пробую смонтировать…"
+    say "Server reachable, trying to mount…"
     MP=$(mounted_path "$SERVER" "$SHARE")
     if [ -n "$MP" ]; then
-      say "  отцепляю прежнее монтирование: $MP"
+      say "  unmounting the previous mount: $MP"
       /sbin/umount -f "$MP" 2>/dev/null || /usr/sbin/diskutil unmount force "$MP" 2>/dev/null
       sleep 1
     fi
@@ -312,34 +314,34 @@ PLIST_EOF
     sleep 1
     MP=$(mounted_path "$SERVER" "$SHARE")
     if [ -n "$MP" ]; then
-      ok "готово: $MP"
-      yesno "Открыть папку в Finder?" y && open "$MP"
+      ok "done: $MP"
+      yesno "Open the share in Finder?" y && open "$MP"
     else
-      err "смонтировать не удалось. Лог:"
+      err "the mount failed. Log:"
       tail -5 "$HOME/Library/Logs/smb-automount.log" 2>/dev/null | sed 's/^/    /'
       say ""
-      say "Чаще всего дело в неверном имени шары, логине или домене."
-      say "Проверьте значения в $CONF_DIR/$SLUG.conf и запустите установщик заново."
+      say "Most often the cause is a wrong share name, login or domain."
+      say "Check the values in $CONF_DIR/$SLUG.conf and run the installer again."
     fi
   else
-    warn "сервер $SERVER сейчас недоступен — похоже, VPN выключен."
-    say "  Это нормально: агент уже работает и смонтирует папку сам,"
-    say "  в течение $INTERVAL сек. после подключения к VPN."
+    warn "server $SERVER is unreachable right now — the VPN appears to be off."
+    say "  That is fine: the agent is already running and will mount the share"
+    say "  by itself within $INTERVAL sec. after the VPN comes up."
   fi
 
   say ""
-  say "${c_b}Полезное:${c_0}"
-  say "  Лог:              tail -f ~/Library/Logs/smb-automount.log"
-  say "  Что установлено:  bash $0 --list"
-  say "  Удалить:          bash $0 --uninstall"
-  say "  Том появится в боковой панели Finder под именем «$SHARE»"
+  say "${c_b}Useful:${c_0}"
+  say "  Log:              tail -f ~/Library/Logs/smb-automount.log"
+  say "  What's installed: bash $0 --list"
+  say "  Remove:           bash $0 --uninstall"
+  say "  The volume appears in the Finder sidebar named “$SHARE”"
   say ""
 }
 
 case "${1:-}" in
   --uninstall|-u) cmd_uninstall ;;
   --list|-l)      say ""; cmd_list; say "" ;;
-  --help|-h)      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
+  --help|-h)      sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
   "")             cmd_install ;;
-  *)              die "неизвестный аргумент: $1 (см. --help)" ;;
+  *)              die "unknown argument: $1 (see --help)" ;;
 esac
