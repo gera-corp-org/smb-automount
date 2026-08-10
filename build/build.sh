@@ -12,7 +12,6 @@ SRC="$ROOT/src"
 DIST="$ROOT/dist"
 
 APP_NAME="Network Folder"
-LOG_APP_NAME="Network Folder Log"
 
 # The version comes from the VERSION file; CI overrides it from the tag.
 VERSION=${VERSION:-$(cat "$ROOT/VERSION")}
@@ -97,19 +96,17 @@ stamp "$DIST/tmp/app.sh"
 stamp "$DIST/smb-automount-install.sh"
 
 # 3. Syntax check before packaging.
-for f in "$DIST/tmp/worker.sh" "$DIST/tmp/app.sh" "$DIST/smb-automount-install.sh" "$SRC/log-app.sh"; do
+for f in "$DIST/tmp/worker.sh" "$DIST/tmp/app.sh" "$DIST/smb-automount-install.sh"; do
   bash -n "$f" || { echo "FAIL: syntax error in $f" >&2; exit 1; }
 done
 
 # 4. Compatibility check against bash 3.2 — the system bash on macOS.
 bash "$ROOT/tests/check-bash32.sh" "$DIST/tmp/app.sh" "$DIST/tmp/worker.sh" "$DIST/smb-automount-install.sh"
 
-# 5. Bundles and archives.
-make_app "$APP_NAME"     "$DIST/tmp/app.sh"    'com.user.smb-automount.setup' 'smb-automount'
-make_app "$LOG_APP_NAME" "$SRC/log-app.sh"     'com.user.smb-automount.log'   'smb-log'
+# 5. Bundle and archive.
+make_app "$APP_NAME" "$DIST/tmp/app.sh" 'com.user.smb-automount.setup' 'smb-automount'
 
-( cd "$DIST" && zip -qry "$APP_NAME.app.zip"     "$APP_NAME.app" )
-( cd "$DIST" && zip -qry "$LOG_APP_NAME.app.zip" "$LOG_APP_NAME.app" )
+( cd "$DIST" && zip -qry "$APP_NAME.app.zip" "$APP_NAME.app" )
 
 rm -rf "$DIST/tmp"
 

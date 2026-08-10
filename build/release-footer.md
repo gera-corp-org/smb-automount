@@ -18,6 +18,7 @@ bundles, only shell scripts run by the system `/bin/bash`.
 For the terminal: `bash smb-automount-install.sh` (`--list`, `--uninstall`,
 `--version`).
 
-`Network Folder Log.app` opens the logs in TextEdit when something goes wrong.
+If something goes wrong, **Show status** in the app reports the state and the
+last log lines; the logs themselves are in `~/Library/Logs`.
 
 Full guide: [docs/INSTALL.md](docs/INSTALL.md).

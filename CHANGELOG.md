@@ -5,8 +5,12 @@ Versions follow [semver](https://semver.org). The dated entries under
 
 ## Unreleased
 
-- The app log and the log app's system dump record `uname -m`, so a support dump
-  says whether it came from an Intel Mac or an Apple Silicon one.
+- The "Network Folder Log" app is gone. It only opened the two log files in
+  TextEdit next to a system dump, while "Show status" in the app already reports
+  the state and the last log lines; the logs stay where they were, in
+  `~/Library/Logs`. One app to ship, one to get past Gatekeeper.
+- The app log records `uname -m`, so a support log says whether it came from an
+  Intel Mac or an Apple Silicon one.
 - CI and the release now run the tests and the build on both architectures. The
   artifacts stay single: the bundles hold shell scripts, so there is nothing to
   compile per architecture.

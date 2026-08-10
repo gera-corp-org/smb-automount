@@ -42,7 +42,6 @@ The result lands in `dist/`:
 | File | Purpose |
 |---|---|
 | `Network Folder.app` | setup and management, double-click |
-| `Network Folder Log.app` | opens the logs in TextEdit |
 | `smb-automount-install.sh` | the same thing for the terminal |
 
 The build substitutes `src/lib/common.sh` for the `@@COMMON@@` marker, embeds the worker script in place of `@@WORKER@@`, stamps the version over `@@VERSION@@`, checks syntax and bash 3.2 compatibility, then assembles the bundles and archives.
@@ -77,7 +76,6 @@ src/
   worker.sh         worker script: mounts and watches the state
   app.sh            app with macOS dialogs
   cli-install.sh    installer for the terminal
-  log-app.sh        app for viewing the logs
 build/
   build.sh          builds dist/
   release-notes.sh  pulls one version's section out of the changelog

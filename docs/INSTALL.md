@@ -27,9 +27,9 @@ If you also want an icon on the desktop: **Finder → Settings → General → S
 
 ## If something goes wrong
 
-Launch **Network Folder Log** — it opens three files in TextEdit: system information, the app log and the mount log. Or check “Show status” in the program itself.
+Check **Show status** in the program: it lists every share that has been set up, where it is mounted and the last few log lines.
 
-Logs: `~/Library/Logs/smb-automount.log` and `smb-automount-app.log`.
+The full logs are `~/Library/Logs/smb-automount.log` (mounting) and `~/Library/Logs/smb-automount-app.log` (the app itself). Open them in any editor — in Finder, **Go → Go to Folder…** and paste `~/Library/Logs` — or from the terminal: `tail -f ~/Library/Logs/smb-automount.log`.
 
 Typical entries:
 

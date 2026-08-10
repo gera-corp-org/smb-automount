@@ -75,5 +75,4 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             "dist/Network Folder.app.zip#Network Folder.app — setup, double-click" \
-            "dist/Network Folder Log.app.zip#Network Folder Log.app — view the logs" \
             "dist/smb-automount-install.sh#Installer for the terminal"
