@@ -3,6 +3,14 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
+## Unreleased
+
+- The app log and the log app's system dump record `uname -m`, so a support dump
+  says whether it came from an Intel Mac or an Apple Silicon one.
+- CI and the release now run the tests and the build on both architectures. The
+  artifacts stay single: the bundles hold shell scripts, so there is nothing to
+  compile per architecture.
+
 ## 1.0.0 — 2026-08-10
 
 First published release. The pre-release builds were passed around by hand;

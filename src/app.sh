@@ -12,7 +12,7 @@ mkdir -p "$(dirname "$APPLOG")" 2>/dev/null
 alog() { echo "$(date '+%F %T') $*" >>"$APPLOG" 2>/dev/null; }
 VERSION="@@VERSION@@"      # substituted by the build from the VERSION file
 alog "=== start (version $VERSION): $0"
-alog "    bash $BASH_VERSION, uid $(id -u), TERM=${TERM:-none}"
+alog "    bash $BASH_VERSION, $(uname -m), uid $(id -u), TERM=${TERM:-none}"
 trap 'alog "=== exit, code $?"' EXIT
 exec 2>>"$APPLOG"        # bash errors go to the log as well
 

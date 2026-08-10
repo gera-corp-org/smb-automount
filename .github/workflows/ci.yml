@@ -8,14 +8,34 @@ on:
 
 jobs:
   build:
-    # macOS: the target platform, and its /bin/bash is the 3.2 the scripts have
-    # to survive on. Everything the build needs (python3, zip) is preinstalled.
-    runs-on: macos-latest
+    name: ${{ matrix.name }}
+    # Both Mac architectures. Nothing shipped here is compiled — the bundles
+    # hold bash scripts — so the point is not two builds but proof that the one
+    # build behaves the same on Intel and on Apple Silicon.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Apple Silicon
+            runner: macos-latest
+            machine: arm64
+          # The last Intel image Actions offers; it goes away in autumn 2027.
+          - name: Intel
+            runner: macos-15-intel
+            machine: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Which bash
-        run: /bin/bash --version | head -1
+      - name: Really this architecture, and which bash
+        run: |
+          got=$(uname -m)
+          echo "machine: $got"
+          /bin/bash --version | head -1
+          [ "$got" = "${{ matrix.machine }}" ] || {
+            echo "expected ${{ matrix.machine }}, the runner is $got" >&2
+            exit 1
+          }
 
       - name: Tests
         run: /bin/bash tests/run-tests.sh
@@ -32,9 +52,15 @@ jobs:
           /bin/bash dist/smb-automount-install.sh --version | grep -q "$ver"
           grep -q "<string>$ver</string>" "dist/Network Folder.app/Contents/Info.plist"
 
+      - name: Checksum of the installer
+        # The same on both runners: that is what "architecture-independent" means
+        # here, and a difference would mean the build picked something up from
+        # the machine.
+        run: shasum -a 256 dist/smb-automount-install.sh
+
       - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.machine }}
           path: |
             dist/*.zip
             dist/smb-automount-install.sh

@@ -4,12 +4,22 @@ on:
   push:
     tags: ['v*']
 
-permissions:
-  contents: write
-
 jobs:
-  release:
-    runs-on: macos-latest
+  # Nothing in the release is compiled, so there is one set of artifacts for
+  # both Mac architectures — but it only goes out after passing on both.
+  verify:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Apple Silicon
+            runner: macos-latest
+            machine: arm64
+          - name: Intel
+            runner: macos-15-intel
+            machine: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -22,8 +32,28 @@ jobs:
             exit 1
           }
 
+      - name: Really this architecture
+        run: |
+          got=$(uname -m)
+          echo "machine: $got"
+          [ "$got" = "${{ matrix.machine }}" ] || {
+            echo "expected ${{ matrix.machine }}, the runner is $got" >&2
+            exit 1
+          }
+
       - name: Tests
         run: /bin/bash tests/run-tests.sh
+
+      - name: Build
+        run: /bin/bash build/build.sh
+
+  publish:
+    needs: verify
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Build
         run: /bin/bash build/build.sh

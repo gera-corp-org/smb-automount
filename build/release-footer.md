@@ -2,6 +2,9 @@
 
 ## Install
 
+One download for both Intel and Apple Silicon: there is no compiled code in the
+bundles, only shell scripts run by the system `/bin/bash`.
+
 1. Download the "Network Folder.app" archive below (GitHub writes its spaces as
    dots), unpack it and move `Network Folder.app` to `/Applications` (or
    anywhere else).

@@ -23,6 +23,8 @@ Setup is a double-click on the app; no terminal needed.
 
 macOS with the system bash 3.2 (that is, any modern version). Nothing to install: only `mount_smbfs`, `smbutil`, `security`, `launchctl` and `osascript` are used.
 
+Intel and Apple Silicon are the same download. The `.app` bundles hold shell scripts rather than compiled binaries — there is no Mach-O code to build per architecture — and the interpreter is the system `/bin/bash`, which macOS ships as a universal binary. Both architectures are tested in CI all the same.
+
 ## Install
 
 Take the archives from the [latest release](https://github.com/gera-corp-org/smb-automount/releases/latest), unpack `Network Folder.app.zip` and open the app.
@@ -58,13 +60,13 @@ No real server needed: `mount_smbfs`, `osascript`, `mount`, `nc` and `security` 
 
 `check-bash32.sh` catches `case` inside `$( )` and a backslash inside `${...}` — bash 5 digests both, while the system bash 3.2 on macOS rejects them with code 258 before the first line of output. The check is part of the build.
 
-On every push and pull request [CI](.github/workflows/ci.yml) runs the tests and the build on a macOS runner, where `/bin/bash` really is 3.2, and keeps `dist/` as a build artifact.
+On every push and pull request [CI](.github/workflows/ci.yml) runs the tests and the build on two macOS runners — Apple Silicon (`macos-latest`) and Intel (`macos-15-intel`) — where `/bin/bash` really is 3.2, and keeps `dist/` as a build artifact from each. Each job asserts its own `uname -m`, so a relabelled runner cannot quietly turn the Intel leg into a second arm64 one, and prints the installer's checksum: the two are equal, which is the practical meaning of "architecture-independent" here.
 
 ## Releasing
 
 1. Bump `VERSION` and add a `## <version>` section to [CHANGELOG.md](CHANGELOG.md) — it becomes the release notes; `bash build/release-notes.sh` prints what they will say.
 2. Commit, then `git tag vX.Y.Z && git push origin master --tags`.
-3. [The release workflow](.github/workflows/release.yml) checks that the tag matches `VERSION`, runs the tests, builds, and publishes a GitHub release with both `.app.zip` archives and the installer attached.
+3. [The release workflow](.github/workflows/release.yml) checks that the tag matches `VERSION` and runs the tests and the build on Intel and on Apple Silicon; only if both pass does it publish a GitHub release with both `.app.zip` archives and the installer attached.
 
 ## Layout
 

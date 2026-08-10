@@ -9,6 +9,7 @@ mkdir -p "$HOME/Library/Logs" 2>/dev/null
   echo "--- system information ---"
   echo "date:     $(date '+%F %T')"
   echo "macOS:    $(sw_vers -productVersion 2>/dev/null)"
+  echo "arch:     $(uname -m)"
   echo "bash:     $BASH_VERSION"
   echo "configs:  $(ls -1 "$HOME/.config/smb-automount"/*.conf 2>/dev/null | wc -l | tr -d ' ')"
   echo "agents:   $(ls -1 "$HOME/Library/LaunchAgents"/com.user.smb-automount.*.plist 2>/dev/null | wc -l | tr -d ' ')"
