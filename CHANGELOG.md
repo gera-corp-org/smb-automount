@@ -3,7 +3,7 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
-## Unreleased
+## 1.1.0 — 2026-08-10
 
 - The "Network Folder Log" app is gone. It only opened the two log files in
   TextEdit next to a system dump, while "Show status" in the app already reports
