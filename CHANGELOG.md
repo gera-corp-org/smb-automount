@@ -3,7 +3,7 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
-## Unreleased
+## 1.2.0 — 2026-08-13
 
 - Setup now asks in the order server, domain, login, password — the domain
   belongs with the server it qualifies, and by the time the password is asked
