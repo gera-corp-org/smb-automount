@@ -3,6 +3,19 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
+## Unreleased
+
+- Fixed: a password holding any character outside ASCII — an umlaut, a Cyrillic
+  letter, an emoji — never mounted. `security … -w` hands such a password back
+  as a lowercase hex dump rather than the text, and the worker sent that dump to
+  the server verbatim, so every attempt came back as "permission denied". Setup
+  gave no hint of it: it still had the typed password in memory and connected
+  fine. The worker now recognises a dump (confirmed against `security … -g`,
+  which prefixes a real one with `0x`) and decodes it; a password that merely
+  looks like hex, such as `deadbeef`, is left alone. Nothing was wrong with what
+  the keychain stored, so the fix needs no password re-entry — only the worker
+  is rewritten. ASCII punctuation was never affected.
+
 ## 1.1.0 — 2026-08-10
 
 - The "Network Folder Log" app is gone. It only opened the two log files in

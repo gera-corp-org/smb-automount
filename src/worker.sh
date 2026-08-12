@@ -167,6 +167,18 @@ if [ -z "$PASS" ]; then
   log "ERROR: password not found in the keychain (service=$KEYCHAIN_SERVICE account=$USERNAME)"
   exit 1
 fi
+if kc_is_hex "$PASS"; then
+  # -g prints the item to stderr and puts an 0x in front of a real hex dump.
+  KCDUMP=$(run_limited 15 /usr/bin/security find-generic-password \
+             -a "$USERNAME" -s "$KEYCHAIN_SERVICE" -g 2>&1 >/dev/null)
+  case "$KCDUMP" in
+    *"password: 0x"*)
+      PASS=$(kc_unhex "$PASS")
+      log "  keychain returned the password as a hex dump (it is not pure ASCII) — decoded"
+      ;;
+  esac
+  unset KCDUMP
+fi
 
 MODES="${AUTHMODE:-$(auth_modes "${DOMAIN:-}")}"
 VOLMP="/Volumes/$SHARE"

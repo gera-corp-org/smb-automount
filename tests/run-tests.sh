@@ -168,6 +168,55 @@ run_worker
 check "the reason is decoded" "permission denied"
 check "the final error" "could not mount"
 
+echo "7. A non-ASCII password comes back from the keychain as a hex dump"
+reset_state
+# The real `security -w` prints a password holding non-ASCII bytes as hex, and
+# marks it as such only in the -g output. d09f… is UTF-8 for “Пароль”.
+stub security <<'S'
+#!/bin/bash
+case "$1" in
+  find-generic-password)
+    case " $* " in
+      *" -g "*) echo 'password: 0xD09FD0B0D180D0BED0BBD18C  "..."' >&2 ;;
+      *)        echo 'd09fd0b0d180d0bed0bbd18c' ;;
+    esac ;;
+esac
+exit 0
+S
+stub mount_smbfs <<'S'
+#!/bin/bash
+rm -f "$WORKDIR/dead"
+printf '%s\n' "$2" > "$WORKDIR/url"
+printf '%s\n' "$3" > "$WORKDIR/mounted"
+exit 0
+S
+run_worker
+if grep -q '%D0%9F%D0%B0%D1%80%D0%BE%D0%BB%D1%8C' "$WORK/url" 2>/dev/null; then
+  echo "  ok   mount_smbfs got the decoded password"; passed=$((passed+1))
+else
+  echo "  FAIL mount_smbfs got: $(cat "$WORK/url" 2>/dev/null)"; failed=$((failed+1))
+fi
+
+echo "8. A plain ASCII password that merely looks like hex is left alone"
+reset_state
+stub security <<'S'
+#!/bin/bash
+case "$1" in
+  find-generic-password)
+    case " $* " in
+      *" -g "*) echo 'password: "deadbeef"' >&2 ;;
+      *)        echo 'deadbeef' ;;
+    esac ;;
+esac
+exit 0
+S
+run_worker
+if grep -q ':deadbeef@' "$WORK/url" 2>/dev/null; then
+  echo "  ok   the password went through untouched"; passed=$((passed+1))
+else
+  echo "  FAIL mount_smbfs got: $(cat "$WORK/url" 2>/dev/null)"; failed=$((failed+1))
+fi
+
 echo
 echo "passed: $passed, failed: $failed"
 [ "$failed" -eq 0 ]

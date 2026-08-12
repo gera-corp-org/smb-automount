@@ -33,3 +33,16 @@ code_hint() {
     *)  echo "code $1" ;;
   esac
 }
+
+# `security … -w` prints the password as a lowercase hex dump instead of the
+# text as soon as it holds one byte outside ASCII — a single umlaut or Cyrillic
+# letter is enough. Handed on as-is, that dump travels to the server as the
+# literal "d09f…" and the mount comes back as "permission denied", while setup,
+# which still has the typed password in memory, succeeds. A dump cannot be told
+# apart from a password that merely looks like one ("deadbeef"), so only that
+# shape is re-checked with -g, which marks a real dump with an 0x prefix.
+kc_is_hex() { # candidate -> true if it could be a hex dump
+  case "$1" in (''|*[!0-9a-f]*) return 1 ;; esac
+  [ $(( ${#1} % 2 )) -eq 0 ]
+}
+kc_unhex() { printf %s "$1" | /usr/bin/perl -pe 's/(..)/chr(hex($1))/ge'; }
