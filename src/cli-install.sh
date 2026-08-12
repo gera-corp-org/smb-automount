@@ -57,17 +57,6 @@ mounted_path() { # server share
 }
 
 
-# Which credential form the server accepts. Prints the mode, or nothing.
-probe_mode() { # server user domain password
-  local m
-  for m in $(auth_modes "$3"); do
-    if /usr/bin/smbutil view -N "//$(auth_str "$m" "$2" "$3" "$4")@$1" >/dev/null 2>&1; then
-      printf '%s\n' "$m"; return 0
-    fi
-  done
-  return 1
-}
-
 list_shares() { # server user domain password mode
   /usr/bin/smbutil view -N "//$(auth_str "$5" "$2" "$3" "$4")@$1" 2>/dev/null \
     | /usr/bin/sed -nE 's/[[:space:]]{2,}Disk([[:space:]].*)?$//p' \
@@ -199,10 +188,16 @@ cmd_install() {
   done
 
   # --- verify the credentials and fetch the list of shares from the server ---
-  local SHARE="" shares i line pick MODE=""
+  local SHARE="" shares i line pick MODE="" PROBE=0
   if /usr/bin/nc -z -G 3 "$SERVER" 445 >/dev/null 2>&1; then
-    MODE=$(probe_mode "$SERVER" "$USERNAME" "$DOMAIN" "$P1") || MODE=""
-    if [ -z "$MODE" ]; then
+    MODE=$(probe_mode "$SERVER" "$USERNAME" "$DOMAIN" "$P1"); PROBE=$?
+    [ "$PROBE" -eq 0 ] || MODE=""
+    if [ "$PROBE" -eq 2 ]; then
+      warn "$SERVER answers on port 445 but never starts an SMB session"
+      warn "the password was not checked at all — it is not what is failing here"
+      warn "most often a VPN client intercepts the name; check what it resolves to:"
+      warn "  dscacheutil -q host -a name $SERVER      (198.18.x.x is a stand-in)"
+    elif [ -z "$MODE" ]; then
       warn "the server accepted the credentials neither as “$USERNAME”, nor as “${DOMAIN:-DOMAIN}\\$USERNAME”, nor as “$USERNAME@${DOMAIN:-domain}”"
       warn "usually this is a typo in the password or an extra/missing domain"
     else

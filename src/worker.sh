@@ -103,7 +103,17 @@ try_smbfs() { # mode mountpoint
   if [ "$rc" -eq 0 ] && [ -n "$(find_mount)" ]; then return 0; fi
   rmdir "$2" 2>/dev/null
   log "  mount_smbfs into $2 (login: $1): $(code_hint "$rc")"
+  # 68/69 mean the SMB session never started, so the credentials were never
+  # looked at. Every other login form will fail the same way — say so instead
+  # of grinding through them.
+  case "$rc" in (68|69) return 3 ;; esac
   return 1
+}
+
+# The server answers on port 445 but not over SMB. Port-open is all reachable()
+# can see, so this is the first place the difference shows.
+no_smb() {
+  set_state "nosmb" "ERROR: $SERVER answers on port 445 but never starts an SMB session — the login form makes no difference, so the remaining attempts are skipped. Most often a VPN client is intercepting the name: check that it resolves to the real address with 'dscacheutil -q host -a name $SERVER' (198.18.x.x is a stand-in, not the server)."
 }
 
 # Method 2: the stock macOS mechanism, the same one behind ⌘K in Finder.
@@ -199,6 +209,7 @@ for m in $MODES; do
   case $? in
     0) MP=$(find_mount); set_state "mounted:$MP" "mounted -> $MP (login: $m, volume in /Volumes)"; exit 0 ;;
     2) set_state "novoldir" "directory $VOLMP is gone and cannot be recreated without an admin password — run Network Folder and go through setup again"; break ;;
+    3) no_smb; exit 1 ;;
   esac
 done
 
@@ -215,11 +226,11 @@ done
 
 # Last resort — the home directory.
 for m in $MODES; do
-  if try_smbfs "$m" "$FALLBACK"; then
-    MP=$(find_mount)
-    set_state "mounted:$MP" "mounted -> $MP (login: $m, fallback path)"
-    exit 0
-  fi
+  try_smbfs "$m" "$FALLBACK"
+  case $? in
+    0) MP=$(find_mount); set_state "mounted:$MP" "mounted -> $MP (login: $m, fallback path)"; exit 0 ;;
+    3) no_smb; exit 1 ;;
+  esac
 done
 
 set_state "failed" "ERROR: could not mount //$SERVER/$SHARE"

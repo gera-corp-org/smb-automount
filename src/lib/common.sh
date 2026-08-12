@@ -21,6 +21,25 @@ auth_str() { # mode user domain password
 auth_modes() { # domain -> variants to try
   if [ -n "$1" ]; then printf 'domain plain upn'; else printf 'plain'; fi
 }
+# Which login form the server accepts. Prints it and exits 0.
+#   1 — the server answered and turned the credentials down.
+#   2 — no SMB answer at all, so nothing was ever checked and the credentials
+#       are not the suspect. A VPN client that intercepts DNS lands here: the
+#       port answers, the SMB session never starts. Reporting that as a bad
+#       password sends everyone hunting the wrong thing, which is exactly what
+#       it did once already.
+probe_mode() { # server user domain password
+  local m rc conn_only=1
+  for m in $(auth_modes "$3"); do
+    /usr/bin/smbutil view -N "//$(auth_str "$m" "$2" "$3" "$4")@$1" >/dev/null 2>&1
+    rc=$?
+    [ "$rc" -eq 0 ] && { printf '%s\n' "$m"; return 0; }
+    case "$rc" in (68|69) ;; (*) conn_only=0 ;; esac
+  done
+  [ "$conn_only" -eq 1 ] && return 2
+  return 1
+}
+
 # Decoding of mount_smbfs exit codes (sysexits.h)
 code_hint() {
   case "$1" in

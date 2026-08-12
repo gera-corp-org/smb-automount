@@ -3,6 +3,20 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
+## Unreleased
+
+- Fixed: a server that answers on port 445 but never gets as far as an SMB
+  session was reported as rejecting the password. Setup said the credentials
+  were accepted "in no form" and named a typo or a wrong domain as the likely
+  cause, while the worker ground through every login form and both mount
+  methods, each one timing out. Nothing was ever authenticated — there was no
+  SMB session to authenticate over. `probe_mode` now separates the two: exit 1
+  is a real rejection, exit 2 means nothing was checked. Both frontends say so
+  and point at name resolution, and the worker stops after the first such
+  failure instead of repeating it eight more times. A VPN client intercepting
+  DNS and handing back a stand-in address (198.18.x.x) is the usual cause; that
+  is what sent a day of debugging after a password that was never the problem.
+
 ## 1.1.1 — 2026-08-12
 
 - Fixed: a password holding any character outside ASCII — an umlaut, a Cyrillic

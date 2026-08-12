@@ -225,6 +225,38 @@ else
   echo "  FAIL mount_smbfs got: $(cat "$WORK/url" 2>/dev/null)"; failed=$((failed+1))
 fi
 
+echo "9. The port is open but no SMB session starts — an honest diagnosis, no grinding"
+reset_state
+rm -f "$WORK/calls"
+stub security <<'S'
+#!/bin/bash
+case "$1" in find-generic-password) echo 's3cret' ;; esac
+exit 0
+S
+# 68 = server not found: it never got as far as checking the credentials.
+stub mount_smbfs <<'S'
+#!/bin/bash
+echo x >> "$WORKDIR/calls"
+echo "mount_smbfs: server connection failed: Operation timed out" >&2
+exit 68
+S
+run_worker
+check "it says the SMB session never starts" "never starts an SMB session"
+check "it names where to look" "dscacheutil"
+if log_text | grep -q "trying NetFS"; then
+  echo "  FAIL NetFS was tried anyway"; failed=$((failed+1))
+else
+  echo "  ok   NetFS was not tried"; passed=$((passed+1))
+fi
+n=$(wc -l < "$WORK/calls" 2>/dev/null | tr -d ' ')
+if [ "${n:-0}" = 1 ]; then echo "  ok   mount_smbfs was called once"; passed=$((passed+1))
+else echo "  FAIL mount_smbfs was called $n times instead of 1"; failed=$((failed+1)); fi
+if log_text | grep -q "could not mount"; then
+  echo "  FAIL the credentials are still blamed in the final message"; failed=$((failed+1))
+else
+  echo "  ok   the credentials are not blamed"; passed=$((passed+1))
+fi
+
 echo
 echo "passed: $passed, failed: $failed"
 [ "$failed" -eq 0 ]

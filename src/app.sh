@@ -112,17 +112,6 @@ slugify() {
 
 reachable() { /usr/bin/nc -z -G 3 "$1" 445 >/dev/null 2>&1; }
 
-# Which credential form the server accepts. Prints the mode, or nothing.
-probe_mode() { # server user domain password
-  local m
-  for m in $(auth_modes "$3"); do
-    if /usr/bin/smbutil view -N "//$(auth_str "$m" "$2" "$3" "$4")@$1" >/dev/null 2>&1; then
-      printf '%s\n' "$m"; return 0
-    fi
-  done
-  return 1
-}
-
 list_shares() { # server user domain password mode
   /usr/bin/smbutil view -N "//$(auth_str "$5" "$2" "$3" "$4")@$1" 2>/dev/null \
     | /usr/bin/sed -nE 's/[[:space:]]{2,}Disk([[:space:]].*)?$//p' \
@@ -224,7 +213,7 @@ do_uninstall() {
 # ------------------------------------------------------------ installation ---
 do_install() {
   local SERVER SHARE USERNAME DOMAIN MOUNTPOINT INTERVAL SLUG KEYCHAIN_SERVICE
-  local PASS PASS2 shares picked MODE="" FALLBACK MP
+  local PASS PASS2 shares picked MODE="" PROBE=0 FALLBACK MP
 
   SERVER=$(ui_input "Server address — host name or IP.
 
@@ -249,8 +238,17 @@ If there is no domain, leave the field empty." "") || return 0
   local DOMSLASH DOMAT
   if [ -n "$DOMAIN" ]; then DOMSLASH="$DOMAIN\\"; DOMAT="$DOMAIN"; else DOMSLASH=""; DOMAT="domain"; fi
   if reachable "$SERVER"; then
-    MODE=$(probe_mode "$SERVER" "$USERNAME" "$DOMAIN" "$PASS") || MODE=""
-    if [ -z "$MODE" ]; then
+    MODE=$(probe_mode "$SERVER" "$USERNAME" "$DOMAIN" "$PASS"); PROBE=$?
+    [ "$PROBE" -eq 0 ] || MODE=""
+    if [ "$PROBE" -eq 2 ]; then
+      ui_confirm "Server $SERVER answers on port 445, but never gets as far as an SMB session. The password was not checked at all — it is not what is failing here.
+
+Most often a VPN client is intercepting the name and handing back a stand-in address. Check what it resolves to:
+
+  dscacheutil -q host -a name $SERVER
+
+Anything in 198.18.x.x is a stand-in, not the real server. Continue anyway?" "Continue" "Cancel" || return 0
+    elif [ -z "$MODE" ]; then
       ui_confirm "Server $SERVER does not accept these credentials in any form:
 
   $USERNAME
