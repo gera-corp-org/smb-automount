@@ -112,6 +112,15 @@ for path in sys.argv[1:]:
            re.search(r'(^|[^-\w])(mapfile|readarray|declare -A|local -n)\b', ln):
             print('  %s:%d  bash 4+ feature: %s' % (name, n, ln.strip()[:60]))
             fail = True
+        # $VAR run straight into a multibyte character: bash 3.2 outside a UTF-8
+        # locale — a LaunchAgent, a Finder-launched app, a CI runner — swallows
+        # the character's bytes as part of the name and looks up "USERNAME”",
+        # which under set -u kills the script. ${VAR} ends the name for good.
+        m = re.search(r'\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7f]', ln)
+        if m:
+            print('  %s:%d  %s runs into a non-ASCII character — write ${...}: %s'
+                  % (name, n, m.group()[:-1], ln.strip()[:60]))
+            fail = True
 
 sys.exit(1 if fail else 0)
 PY

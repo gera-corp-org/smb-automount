@@ -14,6 +14,15 @@ Versions follow [semver](https://semver.org). The dated entries under
   explanation. It is not treated as a failure — installing while the VPN is
   down is what this program is for — but nothing can be verified then, and now
   it says so.
+- Fixed: setup died on the spot when the server turned the credentials down.
+  `“$USERNAME”` reads as a variable named `USERNAME”` in bash 3.2 outside a
+  UTF-8 locale — the quote's bytes are taken for part of the name — so `set -u`
+  killed the script at exactly the point where it was supposed to explain what
+  had gone wrong. Five more places had the same shape, among them the app's
+  dialog about creating the directory in `/Volumes`. A terminal usually carries
+  a UTF-8 locale, which is why this survived there; an app launched from Finder
+  and an agent under launchd do not. All six now write `${VAR}`, and
+  `check-bash32.sh` refuses the pattern from here on.
 - The setup flow has tests: `tests/run-cli-tests.sh` drives the built installer
   with canned answers and checks that each outcome is reported as itself. Until
   now nothing covered the frontends at all.

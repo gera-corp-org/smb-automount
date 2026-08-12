@@ -338,7 +338,7 @@ CONF_EOF
   # created once with administrator privileges — otherwise Finder shows a plain
   # server connection instead of a volume.
   if [ ! -d "$MOUNTPOINT" ] && ! mkdir -p "$MOUNTPOINT" 2>/dev/null; then
-    if ui_confirm "For the share to appear in Finder as a separate volume named “$SHARE”, a directory has to be created once:
+    if ui_confirm "For the share to appear in Finder as a separate volume named “${SHARE}”, a directory has to be created once:
 
 $MOUNTPOINT
 

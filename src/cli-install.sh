@@ -148,7 +148,7 @@ cmd_uninstall() {
   [ ${#slugs[@]} -gt 0 ] || { say "Nothing to remove."; exit 0; }
 
   for s in "${slugs[@]}"; do
-    yesno "Remove “$s”?" n || continue
+    yesno "Remove “${s}”?" n || continue
     launchctl bootout "gui/$(id -u)/$LABEL_PREFIX.$s" 2>/dev/null
     rm -f "$AGENT_DIR/$LABEL_PREFIX.$s.plist"
     # shellcheck disable=SC1090
@@ -161,7 +161,7 @@ cmd_uninstall() {
           && echo "  password deleted"
       fi )
     rm -f "$CONF_DIR/$s.conf"
-    ok "“$s” removed"
+    ok "“${s}” removed"
   done
   exit 0
 }
@@ -209,7 +209,7 @@ cmd_install() {
       warn "most often a VPN client intercepts the name; check what it resolves to:"
       warn "  dscacheutil -q host -a name $SERVER      (198.18.x.x is a stand-in)"
     elif [ -z "$MODE" ]; then
-      warn "the server accepted the credentials neither as “$USERNAME”, nor as “${DOMAIN:-DOMAIN}\\$USERNAME”, nor as “$USERNAME@${DOMAIN:-domain}”"
+      warn "the server accepted the credentials neither as “${USERNAME}”, nor as “${DOMAIN:-DOMAIN}\\${USERNAME}”, nor as “${USERNAME}@${DOMAIN:-domain}”"
       warn "usually this is a typo in the password or an extra/missing domain"
     else
       say "  login form: $MODE"
@@ -342,7 +342,7 @@ PLIST_EOF
   say "  Log:              tail -f ~/Library/Logs/smb-automount.log"
   say "  What's installed: bash $0 --list"
   say "  Remove:           bash $0 --uninstall"
-  say "  The volume appears in the Finder sidebar named “$SHARE”"
+  say "  The volume appears in the Finder sidebar named “${SHARE}”"
   say ""
 }
 

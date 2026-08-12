@@ -21,8 +21,12 @@ CLI=$(ls "$ROOT"/dist/smb-automount-install-*.sh 2>/dev/null | head -1)
 [ -n "$CLI" ] || { echo "no built installer in dist/ — run build/build.sh first" >&2; exit 1; }
 
 # The same rewrite the worker tests use: absolute paths become stub names.
+# mount_smbfs is spelled out separately — on a macOS runner the real one must
+# never be reached.
 sed -e 's#/usr/bin/nc#nc#g' -e 's#/usr/bin/smbutil#smbutil#g' \
-    -e 's#/usr/bin/security#security#g' -e 's#/sbin/mount#mount_stub#g' \
+    -e 's#/usr/bin/security#security#g' \
+    -e 's#/sbin/mount_smbfs#mount_smbfs#g' \
+    -e 's#/sbin/mount -t smbfs#mount_stub -t smbfs#g' \
     "$CLI" > "$WORK/cli.sh"
 
 stub() { cat > "$STUB/$1"; chmod +x "$STUB/$1"; }
@@ -32,6 +36,8 @@ stub security   <<<'#!/bin/bash
 exit 0'
 stub mount_stub <<<'#!/bin/bash
 exit 0'
+stub mount_smbfs <<<'#!/bin/bash
+exit 1'
 stub launchctl  <<<'#!/bin/bash
 exit 0'
 
@@ -42,9 +48,13 @@ run() { # name nc-code smbutil-code [share-listing]
   { printf '#!/bin/bash\n'; printf "printf '%%s' '%s'\n" "${4:-}"; printf 'exit %s\n' "$3"; } > "$STUB/smbutil"
   chmod +x "$STUB/nc" "$STUB/smbutil"
   local home="$WORK/home-$1"; mkdir -p "$home"
+  # Strip the colour codes: $'\033' rather than \x1b, which only GNU sed knows,
+  # and LC_ALL=C so BSD sed does not stop at the first typographic quote in a
+  # message with "RE error: illegal byte sequence" — that truncates the capture
+  # mid-run and turns a passing check into a puzzling failure.
   printf 'vault.example.local\nCORP\nadmin\nsecret\nsecret\n1\n60\n' \
     | HOME="$home" PATH="$STUB:$PATH" bash "$WORK/cli.sh" 2>&1 \
-    | sed 's/\x1b\[[0-9;]*m//g' > "$WORK/out"
+    | LC_ALL=C sed $'s/\033\\[[0-9;]*m//g' > "$WORK/out"
 }
 
 check() { # description pattern
