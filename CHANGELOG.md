@@ -3,7 +3,7 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
-## Unreleased
+## 1.1.2 — 2026-08-12
 
 - Fixed: a server that answers on port 445 but never gets as far as an SMB
   session was reported as rejecting the password. Setup said the credentials
