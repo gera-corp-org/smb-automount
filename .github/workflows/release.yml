@@ -72,9 +72,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # No "file#label" here: a label replaces the file name in the release
-          # links, and the file name is what a person needs to see.
+          # links, and the file name — which carries the version — is what a
+          # person needs to see.
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/notes.md" \
-            "dist/Network Folder.app.zip" \
-            "dist/smb-automount-install.sh"
+            dist/*.zip \
+            dist/smb-automount-install-*.sh

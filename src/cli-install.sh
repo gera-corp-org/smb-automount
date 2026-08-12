@@ -339,7 +339,10 @@ case "${1:-}" in
   --uninstall|-u) cmd_uninstall ;;
   --list|-l)      say ""; cmd_list; say "" ;;
   --version|-V)   say "smb-automount $VERSION" ;;
-  --help|-h)      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
+  # The header names the script generically; the copy on disk carries a version
+  # in its name, so show that instead — the lines stay copy-pasteable.
+  --help|-h)      sed -n '2,14p' "$0" | sed -e 's/^# \{0,1\}//' \
+                    -e "s/smb-automount-install\\.sh/$(basename "$0")/g" ;;
   "")             cmd_install ;;
   *)              die "unknown argument: $1 (see --help)" ;;
 esac

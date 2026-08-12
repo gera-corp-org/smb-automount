@@ -21,6 +21,12 @@ case "$VERSION" in
     echo "FAIL: bad version '$VERSION' (expected something like 1.0.0)" >&2; exit 1 ;;
 esac
 
+# Downloads carry the version, so a copy found on a disk months later can still
+# say what it is. No spaces either — GitHub rewrites them as dots in the release
+# links. The bundle inside the archive keeps its human name.
+APP_ZIP="Network-Folder-$VERSION.app.zip"
+CLI_FILE="smb-automount-install-$VERSION.sh"
+
 # Substitutes the contents of a file for a marker line.
 # sed/awk are finicky with multi-line insertions, so python3 does it — it is
 # present on macOS and in any build environment.
@@ -88,25 +94,25 @@ expand "$SRC/app.sh"         '@@COMMON@@' "$SRC/lib/common.sh" > "$DIST/tmp/app.
 expand "$DIST/tmp/app.stage1" '@@WORKER@@' "$DIST/tmp/worker.sh" > "$DIST/tmp/app.sh"
 
 expand "$SRC/cli-install.sh"  '@@COMMON@@' "$SRC/lib/common.sh" > "$DIST/tmp/cli.stage1"
-expand "$DIST/tmp/cli.stage1" '@@WORKER@@' "$DIST/tmp/worker.sh" > "$DIST/smb-automount-install.sh"
-chmod 755 "$DIST/smb-automount-install.sh"
+expand "$DIST/tmp/cli.stage1" '@@WORKER@@' "$DIST/tmp/worker.sh" > "$DIST/$CLI_FILE"
+chmod 755 "$DIST/$CLI_FILE"
 
 # 2a. The version — into both frontends.
 stamp "$DIST/tmp/app.sh"
-stamp "$DIST/smb-automount-install.sh"
+stamp "$DIST/$CLI_FILE"
 
 # 3. Syntax check before packaging.
-for f in "$DIST/tmp/worker.sh" "$DIST/tmp/app.sh" "$DIST/smb-automount-install.sh"; do
+for f in "$DIST/tmp/worker.sh" "$DIST/tmp/app.sh" "$DIST/$CLI_FILE"; do
   bash -n "$f" || { echo "FAIL: syntax error in $f" >&2; exit 1; }
 done
 
 # 4. Compatibility check against bash 3.2 — the system bash on macOS.
-bash "$ROOT/tests/check-bash32.sh" "$DIST/tmp/app.sh" "$DIST/tmp/worker.sh" "$DIST/smb-automount-install.sh"
+bash "$ROOT/tests/check-bash32.sh" "$DIST/tmp/app.sh" "$DIST/tmp/worker.sh" "$DIST/$CLI_FILE"
 
 # 5. Bundle and archive.
 make_app "$APP_NAME" "$DIST/tmp/app.sh" 'com.user.smb-automount.setup' 'smb-automount'
 
-( cd "$DIST" && zip -qry "$APP_NAME.app.zip" "$APP_NAME.app" )
+( cd "$DIST" && zip -qry "$APP_ZIP" "$APP_NAME.app" )
 
 rm -rf "$DIST/tmp"
 

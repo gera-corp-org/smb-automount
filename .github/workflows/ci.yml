@@ -49,18 +49,20 @@ jobs:
       - name: The built copies report the version
         run: |
           ver=$(cat VERSION)
-          /bin/bash dist/smb-automount-install.sh --version | grep -q "$ver"
+          # The file names carry it too, so a missing bump shows up here.
+          test -f "dist/Network-Folder-$ver.app.zip"
+          /bin/bash "dist/smb-automount-install-$ver.sh" --version | grep -q "$ver"
           grep -q "<string>$ver</string>" "dist/Network Folder.app/Contents/Info.plist"
 
       - name: Checksum of the installer
         # The same on both runners: that is what "architecture-independent" means
         # here, and a difference would mean the build picked something up from
         # the machine.
-        run: shasum -a 256 dist/smb-automount-install.sh
+        run: shasum -a 256 dist/smb-automount-install-*.sh
 
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.machine }}
           path: |
             dist/*.zip
-            dist/smb-automount-install.sh
+            dist/smb-automount-install-*.sh

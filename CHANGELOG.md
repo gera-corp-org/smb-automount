@@ -3,6 +3,16 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
+## Unreleased
+
+- The downloads carry the version in their names — `Network-Folder-<version>.app.zip`
+  and `smb-automount-install-<version>.sh` — so a copy found on a disk months
+  later can still say what it is, and the two no longer differ only by the date
+  they were fetched. They also lost their spaces, which GitHub rewrote as dots
+  in the release links. Inside the archive the bundle is still plain
+  `Network Folder.app`, and the installer's `--help` now prints the name of the
+  file it was actually run from rather than a generic one.
+
 ## 1.1.2 — 2026-08-12
 
 - Fixed: a server that answers on port 445 but never gets as far as an SMB

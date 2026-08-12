@@ -4,7 +4,7 @@ The share connects by itself: at login and after the corporate VPN comes up. Whi
 
 ## Installation
 
-Unpack `Network Folder.app.zip` and launch the app. No terminal needed.
+Unpack the downloaded `Network-Folder-<version>.app.zip` — inside it the app is plain `Network Folder.app` — and launch it. No terminal needed.
 
 The very first launch has to be **right-click on the app → Open → Open**: the app carries no Apple developer signature, so a double-click on a freshly downloaded copy is refused with "cannot be opened because it is from an unidentified developer". If the dialog offers no "Open" button, go to **System Settings → Privacy & Security** and press **Open Anyway** there. From the second launch on, a double-click is enough.
 
@@ -53,4 +53,4 @@ Typical entries:
 
 - Several shares can be set up independently.
 - The mount point is `/Volumes/<share name>`; if the directory there is unavailable, the program falls back to `~/mnt/<share name>` and notes this in the log.
-- To remove: the **Remove** item in the program's menu (or `bash smb-automount-install.sh --uninstall` for the terminal variant).
+- To remove: the **Remove** item in the program's menu (or `bash smb-automount-install-<version>.sh --uninstall` for the terminal variant).

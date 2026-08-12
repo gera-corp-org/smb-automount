@@ -27,7 +27,7 @@ Intel and Apple Silicon are the same download. The `.app` bundles hold shell scr
 
 ## Install
 
-Take the archives from the [latest release](https://github.com/gera-corp-org/smb-automount/releases/latest), unpack `Network Folder.app.zip` and open the app.
+Take the files from the [latest release](https://github.com/gera-corp-org/smb-automount/releases/latest) — they carry the version in their names, `Network-Folder-<version>.app.zip` and `smb-automount-install-<version>.sh`. Unpack the archive and open the app; inside it the bundle is plain `Network Folder.app`.
 
 The app is not signed by an Apple developer account, so the first launch goes through **right-click → Open → Open**; a plain double-click is refused by macOS as "from an unidentified developer". Later launches are ordinary double-clicks. See [docs/INSTALL.md](docs/INSTALL.md).
 
@@ -41,8 +41,13 @@ The result lands in `dist/`:
 
 | File | Purpose |
 |---|---|
-| `Network Folder.app` | setup and management, double-click |
-| `smb-automount-install.sh` | the same thing for the terminal |
+| `Network-Folder-<version>.app.zip` | the download: the app, archived |
+| `Network Folder.app` | the bundle itself, for a local run |
+| `smb-automount-install-<version>.sh` | the same setup for the terminal |
+
+The two downloads carry the version so a copy found on a disk months later can
+still say what it is, and they carry no spaces so the release links stay
+readable — GitHub rewrites a space in an asset name as a dot.
 
 The build substitutes `src/lib/common.sh` for the `@@COMMON@@` marker, embeds the worker script in place of `@@WORKER@@`, stamps the version over `@@VERSION@@`, checks syntax and bash 3.2 compatibility, then assembles the bundles and archives.
 
@@ -65,7 +70,7 @@ On every push and pull request [CI](.github/workflows/ci.yml) runs the tests and
 
 1. Bump `VERSION` and add a `## <version>` section to [CHANGELOG.md](CHANGELOG.md) — it becomes the release notes; `bash build/release-notes.sh` prints what they will say.
 2. Commit, then `git tag vX.Y.Z && git push origin master --tags`.
-3. [The release workflow](.github/workflows/release.yml) checks that the tag matches `VERSION` and runs the tests and the build on Intel and on Apple Silicon; only if both pass does it publish a GitHub release with both `.app.zip` archives and the installer attached.
+3. [The release workflow](.github/workflows/release.yml) checks that the tag matches `VERSION` and runs the tests and the build on Intel and on Apple Silicon; only if both pass does it publish a GitHub release with the `.app.zip` archive and the installer attached, both named with the version.
 
 ## Layout
 
