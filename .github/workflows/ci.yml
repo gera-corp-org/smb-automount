@@ -43,6 +43,10 @@ jobs:
       - name: Build
         run: /bin/bash build/build.sh
 
+      - name: Setup-flow tests
+        # After the build: they drive the installer as it ships in dist/.
+        run: /bin/bash tests/run-cli-tests.sh
+
       - name: Release notes exist for the current VERSION
         run: /bin/bash build/release-notes.sh
 

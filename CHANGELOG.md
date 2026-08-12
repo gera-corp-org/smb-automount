@@ -5,6 +5,18 @@ Versions follow [semver](https://semver.org). The dated entries under
 
 ## Unreleased
 
+- Setup now asks in the order server, domain, login, password — the domain
+  belongs with the server it qualifies, and by the time the password is asked
+  for the prompt can name the account the way the server will see it
+  (`CORP\admin`). Then, with everything in hand, it checks: a server that does
+  not answer on port 445 is now said out loud instead of being passed over in
+  silence, which left setup asking for the share name by hand with no
+  explanation. It is not treated as a failure — installing while the VPN is
+  down is what this program is for — but nothing can be verified then, and now
+  it says so.
+- The setup flow has tests: `tests/run-cli-tests.sh` drives the built installer
+  with canned answers and checks that each outcome is reported as itself. Until
+  now nothing covered the frontends at all.
 - The downloads carry the version in their names — `Network-Folder-<version>.app.zip`
   and `smb-automount-install-<version>.sh` — so a copy found on a disk months
   later can still say what it is, and the two no longer differ only by the date

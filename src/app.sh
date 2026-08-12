@@ -220,24 +220,35 @@ do_install() {
 For example: fileserver.corp.local" "") || return 0
   [ -n "$SERVER" ] || { ui_msg "No server address given." caution; return 0; }
 
-  USERNAME=$(ui_input "Your login on the server:" "$(id -un)") || return 0
-  [ -n "$USERNAME" ] || { ui_msg "No login given." caution; return 0; }
-
   DOMAIN=$(ui_input "Active Directory domain.
 
 If there is no domain, leave the field empty." "") || return 0
 
+  USERNAME=$(ui_input "Your login on the server — the short account name, without the domain:" "$(id -un)") || return 0
+  [ -n "$USERNAME" ] || { ui_msg "No login given." caution; return 0; }
+
+  # The domain is known by now, so the password prompt can name the account the
+  # way the server will see it.
+  local DOMSLASH DOMAT
+  if [ -n "$DOMAIN" ]; then DOMSLASH="$DOMAIN\\"; DOMAT="$DOMAIN"; else DOMSLASH=""; DOMAT="domain"; fi
+
   while :; do
-    PASS=$(ui_input "Password for $USERNAME@$SERVER:" "" hidden) || return 0
+    PASS=$(ui_input "Password for $DOMSLASH$USERNAME on $SERVER:" "" hidden) || return 0
     [ -n "$PASS" ] && break
     ui_msg "The password cannot be empty." caution
   done
 
-  # --- verify the credentials and fetch the list of shares ---
+  # --- everything is in: check the server, then the credentials ---
   SHARE=""
-  local DOMSLASH DOMAT
-  if [ -n "$DOMAIN" ]; then DOMSLASH="$DOMAIN\\"; DOMAT="$DOMAIN"; else DOMSLASH=""; DOMAT="domain"; fi
-  if reachable "$SERVER"; then
+  if ! reachable "$SERVER"; then
+    # Not a failure: setting up while the VPN is down is the normal case this
+    # whole program exists for. It just means nothing can be verified now.
+    ui_confirm "Server $SERVER does not answer on port 445.
+
+If the VPN is not up yet, that is expected — the agent will mount the share by itself once the connection appears. But nothing can be checked right now: neither the password nor the list of shares, so the share name will have to be typed by hand.
+
+Set it up anyway?" "Set up" "Cancel" || return 0
+  else
     MODE=$(probe_mode "$SERVER" "$USERNAME" "$DOMAIN" "$PASS"); PROBE=$?
     [ "$PROBE" -eq 0 ] || MODE=""
     if [ "$PROBE" -eq 2 ]; then

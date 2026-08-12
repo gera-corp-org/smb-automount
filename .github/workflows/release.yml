@@ -47,6 +47,9 @@ jobs:
       - name: Build
         run: /bin/bash build/build.sh
 
+      - name: Setup-flow tests
+        run: /bin/bash tests/run-cli-tests.sh
+
   publish:
     needs: verify
     runs-on: macos-latest

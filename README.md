@@ -57,10 +57,13 @@ The version comes from the `VERSION` file — the single source for the apps' `I
 
 ```bash
 bash tests/run-tests.sh            # worker behaviour against stubs
+bash tests/run-cli-tests.sh        # the setup flow, against the built installer
 bash tests/check-bash32.sh file... # compatibility with the system bash on macOS
 ```
 
 No real server needed: `mount_smbfs`, `osascript`, `mount`, `nc` and `security` are replaced with stubs, and the log plus the fact of mounting are checked. Covered: waiting for the VPN, mounting into `/Volumes`, resilience to network hiccups, recovery after a dropped session, the fallback into the home folder, and a server refusal.
+
+`run-cli-tests.sh` drives the installer as it ships in `dist/` (so run the build first) with canned answers: that the questions come in order, and that each outcome — the port not answering, the credentials turned down, an SMB session that never starts, everything in order — is reported as itself. The app asks the same questions through dialogs, so this is the closest there is to a test of the setup flow; the app's own osascript layer stays untested.
 
 `check-bash32.sh` catches `case` inside `$( )` and a backslash inside `${...}` — bash 5 digests both, while the system bash 3.2 on macOS rejects them with code 258 before the first line of output. The check is part of the build.
 
@@ -85,7 +88,10 @@ build/
   build.sh          builds dist/
   release-notes.sh  pulls one version's section out of the changelog
   release-footer.md install instructions appended to the release notes
-tests/              tests
+tests/
+  run-tests.sh      the worker, against stubs
+  run-cli-tests.sh  the setup flow, against the built installer
+  check-bash32.sh   the two constructs bash 3.2 cannot parse
 .github/workflows/  CI on macOS and the release on a tag
 docs/INSTALL.md     user guide
 ```

@@ -176,20 +176,31 @@ cmd_install() {
   say ""
 
   ask SERVER   "Server address (host name or IP)"
-  ask USERNAME "Login" "$(id -un)"
   ask DOMAIN   "AD domain (Enter — if none)" "" allow_empty
+  ask USERNAME "Login (short account name, without the domain)" "$(id -un)"
 
+  # The domain is known by now, so the prompt can name the account the way the
+  # server will see it.
+  # No ${DOMAIN:+…\\…} here: a backslash inside ${...} is one of the two things
+  # the system bash 3.2 refuses to parse at all.
+  local WHO="$USERNAME"
+  if [ -n "$DOMAIN" ]; then WHO="$DOMAIN\\$USERNAME"; fi
   local P1 P2
   while :; do
-    printf '%sPassword%s (not shown): ' "$c_b" "$c_0"; IFS= read -rs P1; echo
-    printf '%sPassword again%s: ' "$c_b" "$c_0";       IFS= read -rs P2; echo
+    printf '%sPassword for %s%s (not shown): ' "$c_b" "$WHO" "$c_0"; IFS= read -rs P1; echo
+    printf '%sPassword again%s: ' "$c_b" "$c_0";                     IFS= read -rs P2; echo
     [ -n "$P1" ] && [ "$P1" = "$P2" ] && break
     warn "the passwords did not match or were empty — try again"
   done
 
-  # --- verify the credentials and fetch the list of shares from the server ---
+  # --- everything is in: check the server, then the credentials ---
   local SHARE="" shares i line pick MODE="" PROBE=0
-  if /usr/bin/nc -z -G 3 "$SERVER" 445 >/dev/null 2>&1; then
+  if ! /usr/bin/nc -z -G 3 "$SERVER" 445 >/dev/null 2>&1; then
+    # Not a failure: setting up while the VPN is down is the normal case.
+    warn "$SERVER does not answer on port 445 — the VPN is probably not up yet"
+    say  "  that is expected: the agent will mount the share once the connection appears,"
+    say  "  but nothing can be checked now, so the share name has to be typed by hand"
+  else
     MODE=$(probe_mode "$SERVER" "$USERNAME" "$DOMAIN" "$P1"); PROBE=$?
     [ "$PROBE" -eq 0 ] || MODE=""
     if [ "$PROBE" -eq 2 ]; then
