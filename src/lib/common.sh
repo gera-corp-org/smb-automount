@@ -41,8 +41,11 @@ code_hint() {
 # which still has the typed password in memory, succeeds. A dump cannot be told
 # apart from a password that merely looks like one ("deadbeef"), so only that
 # shape is re-checked with -g, which marks a real dump with an 0x prefix.
+# The dump comes out lowercase on macOS 26, but both cases are accepted: it
+# costs nothing, `perl hex()` eats either, and the -g check below still has the
+# last word on whether it is a dump at all.
 kc_is_hex() { # candidate -> true if it could be a hex dump
-  case "$1" in (''|*[!0-9a-f]*) return 1 ;; esac
+  case "$1" in (''|*[!0-9a-fA-F]*) return 1 ;; esac
   [ $(( ${#1} % 2 )) -eq 0 ]
 }
 kc_unhex() { printf %s "$1" | /usr/bin/perl -pe 's/(..)/chr(hex($1))/ge'; }

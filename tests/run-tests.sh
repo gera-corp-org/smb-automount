@@ -63,6 +63,7 @@ stub() { cat > "$STUB/$1"; chmod +x "$STUB/$1"; }
 reset_state() {
   rm -rf "$HOME_DIR/Library" "$WORK/mounted" "$WORK/dead"
   rm -f "$HOME_DIR/.config/smb-automount/x.state" "$HOME_DIR/.config/smb-automount/x.fails"
+  rm -f "$WORK/url"
   rm -rf "$VOL"/* "$HOME_DIR/mnt"
 }
 
@@ -208,6 +209,13 @@ case "$1" in
       *)        echo 'deadbeef' ;;
     esac ;;
 esac
+exit 0
+S
+stub mount_smbfs <<'S'
+#!/bin/bash
+rm -f "$WORKDIR/dead"
+printf '%s\n' "$2" > "$WORKDIR/url"
+printf '%s\n' "$3" > "$WORKDIR/mounted"
 exit 0
 S
 run_worker

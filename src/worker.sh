@@ -176,6 +176,15 @@ if kc_is_hex "$PASS"; then
       PASS=$(kc_unhex "$PASS")
       log "  keychain returned the password as a hex dump (it is not pure ASCII) — decoded"
       ;;
+    *'password: "'*)
+      : ;;   # a password that merely looks like hex — leave it as it is
+    *)
+      # -g answered neither way: killed by the timeout above, or stopped by an
+      # access prompt. Going on with the text is the safe guess, but say so —
+      # otherwise this ends as a bare "permission denied" with no explanation.
+      log "  WARNING: the password looks like a hex dump, but 'security -g' gave no answer"
+      log "           (access prompt or timeout) — using it as plain text"
+      ;;
   esac
   unset KCDUMP
 fi
