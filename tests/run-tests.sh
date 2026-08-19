@@ -37,7 +37,7 @@ sed -i.bak \
   -e 's#/usr/bin/osascript#osascript#g' \
   -e 's#/sbin/mount_smbfs#mount_smbfs#g' \
   -e 's#/sbin/umount#umount#g' \
-  -e 's#run_limited 10 /bin/ls#run_limited 3 ls#' \
+  -e 's#run_limited 10 /bin/df#run_limited 3 df_stub#' \
   -e 's#run_limited 30 #run_limited 3 #g' \
   -e "s#\"/Volumes/\$SHARE\"#\"\$TESTVOL/\$SHARE\"#" \
   "$WORK/worker.sh"
@@ -61,7 +61,7 @@ CONF="$HOME_DIR/.config/smb-automount/x.conf"
 stub() { cat > "$STUB/$1"; chmod +x "$STUB/$1"; }
 
 reset_state() {
-  rm -rf "$HOME_DIR/Library" "$WORK/mounted" "$WORK/dead"
+  rm -rf "$HOME_DIR/Library" "$WORK/mounted" "$WORK/dead" "$WORK/eperm"
   rm -f "$HOME_DIR/.config/smb-automount/x.state" "$HOME_DIR/.config/smb-automount/x.fails"
   rm -f "$WORK/url"
   rm -rf "$VOL"/* "$HOME_DIR/mnt"
@@ -85,6 +85,16 @@ check() { # description pattern-in-log
   fi
 }
 
+check_not() { # description pattern-in-log
+  if log_text | grep -q "$2"; then
+    echo "  FAIL $1 — the log has “$2”"
+    failed=$((failed + 1))
+  else
+    echo "  ok   $1"
+    passed=$((passed + 1))
+  fi
+}
+
 # ------------------------------------------------------------------- stubs ---
 stub nc <<'S'
 #!/bin/bash
@@ -105,9 +115,18 @@ stub umount <<'S'
 #!/bin/bash
 rm -f "$WORKDIR/mounted"; exit 0
 S
-stub ls <<'S'
+# The liveness probe. "dead" makes it hang, so run_limited aborts it the way a
+# lost SMB session does; "eperm" reproduces what macOS tells a launchd agent
+# about a network volume it is not allowed to read.
+stub df_stub <<'S'
 #!/bin/bash
-[ -f "$WORKDIR/dead" ] && sleep 60
+if [ -f "$WORKDIR/eperm" ]; then
+  echo "df: $2: Operation not permitted" >&2
+  exit 1
+fi
+# exec: the stub becomes sleep, so run_limited kills the hang itself instead of
+# leaving an orphan behind.
+[ -f "$WORKDIR/dead" ] && exec sleep 60
 exit 0
 S
 stub mount_smbfs <<'S'
@@ -256,6 +275,44 @@ if log_text | grep -q "could not mount"; then
 else
   echo "  ok   the credentials are not blamed"; passed=$((passed+1))
 fi
+
+echo "10. The volume cannot be read (TCC denies the agent) — it stays mounted"
+# Scenarios 8 and 9 left stubs that refuse to mount; put working ones back.
+stub security <<'S'
+#!/bin/bash
+case "$1" in find-generic-password) echo 's3cret' ;; esac
+exit 0
+S
+stub mount_smbfs <<'S'
+#!/bin/bash
+rm -f "$WORKDIR/dead"
+printf '%s\n' "$3" > "$WORKDIR/mounted"
+exit 0
+S
+reset_state
+run_worker
+[ -f "$WORK/mounted" ] || { echo "  (стенд) том не смонтировался — дальше проверять нечего"; }
+touch "$WORK/eperm"
+run_worker; run_worker; run_worker; run_worker
+if [ -f "$WORK/mounted" ]; then
+  echo "  ok   the volume was not unmounted"; passed=$((passed+1))
+else
+  echo "  FAIL a healthy volume was unmounted after being refused a read"; failed=$((failed+1))
+fi
+check_not "no phantom failures in the log" "did not answer"
+check_not "and no unmounting" "unmounting and reconnecting"
+n=$(cat "$HOME_DIR/.config/smb-automount/x.fails" 2>/dev/null || echo 0)
+if [ "$n" = 0 ]; then echo "  ok   the failure counter stayed at zero"; passed=$((passed+1))
+else echo "  FAIL the counter reached $n"; failed=$((failed+1)); fi
+rm -f "$WORK/eperm"
+
+echo "11. Refused a read AND the server is gone — that is a dead mount"
+reset_state
+run_worker
+touch "$WORK/eperm" "$WORK/offline"
+run_worker; run_worker; run_worker
+check "three strikes and it unmounts" "unmounting and reconnecting"
+rm -f "$WORK/eperm" "$WORK/offline"
 
 echo
 echo "passed: $passed, failed: $failed"

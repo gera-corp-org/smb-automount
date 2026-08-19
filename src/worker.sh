@@ -140,11 +140,38 @@ try_netfs() { # mode
 MP=$(find_mount)
 FAILS_FILE="${CONF%.conf}.fails"
 
-# --- volume already mounted: check it is alive by reading it, not by probing
-# the port. A single failed port probe (easy to miss over VPN) used to unmount
-# a perfectly working volume, making it flicker once a minute.
+# --- volume already mounted: is it alive?
+#
+# Not by reading the directory. macOS denies a launchd agent access to the
+# contents of a network volume — readdir and open() come back "Operation not
+# permitted" while the volume is perfectly healthy — and there is no way to ask
+# for consent from a background agent. Taking that EPERM for death is what made
+# the agent force-unmount a working volume every three minutes and remount it,
+# which is exactly the flicker the read-based check was introduced to stop.
+#
+# statfs is allowed, and it asks the server for free space rather than the
+# kernel for a cached answer, so that is the probe. If even statfs is refused,
+# nothing about the volume can be established — fall back to the port, which is
+# a coarse signal but an honest one.
+# stderr goes to a file, not through $( ): a command substitution waits for the
+# write end of its pipe to close, so one descendant outliving the kill would
+# hang the caller for the full sleep — the time limit has to hold no matter what
+# the probe leaves behind.
+volume_alive() { # mountpoint
+  local err rc probe="${CONF%.conf}.probe"
+  run_limited 10 /bin/df -k "$1" >/dev/null 2>"$probe"; rc=$?
+  err=$(cat "$probe" 2>/dev/null)
+  rm -f "$probe" 2>/dev/null
+  case "$err" in
+    (*"not permitted"*)
+      reachable
+      return $? ;;
+  esac
+  [ "$rc" -eq 0 ]
+}
+
 if [ -n "$MP" ]; then
-  if run_limited 10 /bin/ls "$MP" >/dev/null 2>&1; then
+  if volume_alive "$MP"; then
     rm -f "$FAILS_FILE" 2>/dev/null
     set_state "mounted:$MP" "already mounted -> $MP"
     exit 0

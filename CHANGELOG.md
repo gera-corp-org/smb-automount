@@ -3,6 +3,23 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
+## Unreleased
+
+- Fixed: the agent was tearing the volume off itself, about every three minutes.
+  It checked whether a mounted volume was alive by reading its directory, and
+  macOS refuses a launchd agent access to the contents of a network volume —
+  `readdir` and `open()` return "Operation not permitted" on a perfectly healthy
+  mount, and a background agent cannot ask for consent. That EPERM was taken for
+  a dead session, so after three checks the agent force-unmounted a working
+  volume and mounted it again. The read-based check had been introduced to stop
+  the volume flickering; on a current macOS it was causing it.
+
+  Liveness is now `statfs`, which the agent is allowed and which asks the server
+  for free space rather than the kernel for a cached answer. A refusal is never
+  read as death: "I was not allowed to look" says nothing about the server, so
+  the check falls back to the port probe. Diagnosed on a real machine — the
+  volume dropped 26 times in one log, every three minutes and ten seconds.
+
 ## 1.2.0 — 2026-08-13
 
 - Setup now asks in the order server, domain, login, password — the domain
