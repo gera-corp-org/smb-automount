@@ -3,7 +3,7 @@
 Versions follow [semver](https://semver.org). The dated entries under
 "Pre-release history" are the builds from before the first published release.
 
-## Unreleased
+## 1.2.1 — 2026-08-19
 
 - Fixed: the agent was tearing the volume off itself, about every three minutes.
   It checked whether a mounted volume was alive by reading its directory, and
